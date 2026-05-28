@@ -2,15 +2,6 @@
 # укажите здесь логику для конкретного проекта.
 #
 
-# Добавьте источник в исполняемый файл этого проекта.
-add_executable (bank_signal "bank_signal.cpp" "bank_signal.h")
-
-
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET bank_signal PROPERTY CXX_STANDARD 20)
-endif()
-
-
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
@@ -48,6 +39,22 @@ FetchContent_MakeAvailable(imgui)
 find_package(OpenGL REQUIRED)
 
 
+
+
+
+# Добавьте источник в исполняемый файл этого проекта.
+add_executable (bank_signal "bank_signal.cpp" "bank_signal.h"  "render/GuiWindow.cpp"  "render/ImGuiLayer.cpp"  "utilities/CommandLineParser.cpp"  ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+
+  
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+ "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp")
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET bank_signal PROPERTY CXX_STANDARD 20)
+endif()
 target_include_directories(bank_signal PRIVATE
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
