@@ -18,7 +18,7 @@ public:
     };
     virtual ~RegisterResponseCommand() override {};
 public:
-    virtual CommandsType getType() override { return CommandsType::Register; };
+    virtual CommandsType getType() override { return CommandsType::RegisterResponse; };
     virtual std::string getCommandTypeName() override { return REGISTER_RESPONSE_COMMAND_TYPE; };
     virtual nlohmann::json toJson() override;
     static RegisterResponseCommand fromJson(const nlohmann::json& json);

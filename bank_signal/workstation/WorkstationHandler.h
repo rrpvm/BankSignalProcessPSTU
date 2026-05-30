@@ -8,6 +8,7 @@
 #include <ws2tcpip.h>
 #include <mutex>
 
+class RegisterResponseCommand;
 class WorkstationHandler final : public IHandler {
 public:
 	explicit WorkstationHandler(std::shared_ptr<WorkstationController> controller);
@@ -19,6 +20,7 @@ private:
 	void sendStateToServer(const CashierInfo& state);
 	void registerForServer();
 	void handleServerMessage(const std::string& msg);
+	void handleRegisterResponse(RegisterResponseCommand* command);
 	void mainLoop();
 private:
 	std::shared_ptr<WorkstationController> mController;

@@ -125,7 +125,53 @@ void WorkstationHandler::registerForServer()
 
 void WorkstationHandler::handleServerMessage(const std::string& msg)
 {
+    json inputMessage;
+    try
+    {
+        inputMessage = json::parse(msg);
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "JSON parse error: " << e.what() << std::endl;
+        return;
+    }
+    if (!inputMessage.contains("type") || !inputMessage["type"].is_string())
+    {
+        std::cout << "missing type, bad msg{" << msg << "}" << std::endl;
+        return;
+    }
 
+    auto command = CommandFactory::fromJson(inputMessage);
+    if (!command.get()) {
+        std::cout << "from json factory error" << std::endl;
+        return;
+    }
+    switch (command->getType())
+    {
+    case CommandsType::RegisterResponse: {
+        handleRegisterResponse(dynamic_cast<RegisterResponseCommand*>(command.get()));
+            break;
+    }
+                                       //Ack
+                                  /* case CommandsType::Ack:
+                                       handleGetState(clientSocket, loopId, dynamic_cast<SendStateCommand*>(command.get()));
+                                       break;*/
+
+    default:
+        std::cout << "unhandled type" << command->getCommandTypeName() << std::endl;
+    }
+}
+
+void WorkstationHandler::handleRegisterResponse(RegisterResponseCommand* command)
+{
+    if (!command)return;
+    CashierInfo info{};
+    info.cashierId = command->cashierId();
+    info.mName = command->cashierName();
+    info.mState = command->state();
+    info.lastHeartBeat = std::chrono::steady_clock::now();
+
+    this->mController->onUpdateServerSide(info);
 }
 
 void WorkstationHandler::mainLoop()

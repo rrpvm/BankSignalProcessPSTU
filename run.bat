@@ -1,0 +1,3 @@
+bank_signal_workstation.exe workstation aaa
+bank_signal_workstation.exe workstation fff
+bank_signal_workstation.exe workstation ggg

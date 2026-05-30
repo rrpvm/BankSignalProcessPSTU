@@ -12,7 +12,7 @@ public:
     };
     virtual ~SendStateCommand() override {};
 public:
-    virtual CommandsType getType() override { return CommandsType::Register; };
+    virtual CommandsType getType() override { return CommandsType::State; };
     virtual std::string getCommandTypeName() override { return SEND_STATE_COMMAND_TYPE; };
     virtual nlohmann::json toJson() override;
     static SendStateCommand fromJson(const nlohmann::json& json);

@@ -270,18 +270,19 @@ void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, con
         break;
     }
 
-    case CommandsType::State:
+    case CommandsType::State: {
         handleGetState(clientSocket, loopId, dynamic_cast<SendStateCommand*>(command.get()));
         break;
-
+    }
     default:
-        std::cout << "unhandled type" << command->getCommandTypeName() << std::endl;
+        std::cout << "unhandled type " << command->getCommandTypeName() << std::endl;
     }
 
 }
 
 std::optional<CashierInfo> ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command)
 {
+ 
     const auto& workerId = command->cashierId();
     appLogger() << "client handleRegisterCommand() {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerId << "}";
     bool hasAlreadySession = false;
