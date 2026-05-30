@@ -6,6 +6,7 @@
 #include "data/AppConfig.hpp"
 #include "domain/IHandler.h"
 #include "repository/CashierRepository.h"
+#include "workstation/WorkstationController.h"
 
 #include <thread>
 #include <memory>
@@ -30,6 +31,7 @@ private:
     GuiWindow window_;
     ImGuiLayer imguiLayer_;
     std::shared_ptr<CashierRepository>mCashierRepository;
+    std::shared_ptr<WorkstationController> mWorkstationController;
     std::unique_ptr<IScreen>_screen;
     std::unique_ptr<IHandler>mHandler;
     std::thread networkHandlerThread;

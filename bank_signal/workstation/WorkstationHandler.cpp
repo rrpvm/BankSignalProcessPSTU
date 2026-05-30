@@ -4,9 +4,14 @@
 #include <nlohmann/json.hpp>
 #include "../utilities/NetworkUtils.h"
 #include "../data/RegisterCommand.h"
+#include "../data/SendStateCommand.h"
 #include "../data/CommandFactory.h"
 using json = nlohmann::json;
-WorkstationHandler::WorkstationHandler() {
+
+
+WorkstationHandler::WorkstationHandler(std::shared_ptr<WorkstationController> controller)
+{
+    this->mController = std::move(controller);
     WSADATA wsaData{};
 
     const int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -105,10 +110,22 @@ bool WorkstationHandler::connectToServer()
     return true;
 }
 
+void WorkstationHandler::sendStateToServer(const CashierInfo& state)
+{
+    SendStateCommand command = SendStateCommand(state);
+    NetworkUtils::sendJson(this->mConnectionSocket, std::move(command.toJson()));
+}
+
 void WorkstationHandler::registerForServer()
 {
-    RegisterCommand command = RegisterCommand(this->mInfo.cashierId, mInfo.mName);
+    CashierInfo info = mController->getLocalState();
+    RegisterCommand command = RegisterCommand(info.cashierId, info.mName);
     NetworkUtils::sendJson(this->mConnectionSocket, std::move(command.toJson()));
+}
+
+void WorkstationHandler::handleServerMessage(const std::string& msg)
+{
+
 }
 
 void WorkstationHandler::mainLoop()
@@ -117,12 +134,15 @@ void WorkstationHandler::mainLoop()
 
     while (isRunning.load())
     {
-        /*
-        if (state_ && state_->consumeDirty())
+        if (mController)
         {
-            sendCurrentState();
-        }*/
+            auto pendingState = mController->consumePendingState();
 
+            if (pendingState.has_value())
+            {
+                sendStateToServer(pendingState->info);
+            }
+        }
        
         int received = recv(mConnectionSocket, buffer, sizeof(buffer) - 1, 0);
 
@@ -132,7 +152,7 @@ void WorkstationHandler::mainLoop()
 
             std::string message(buffer);
             std::cout << "got: " << message << std::endl;
-           // handleServerMessage(message);
+            handleServerMessage(message);
         }
         else if (received == 0)
         {

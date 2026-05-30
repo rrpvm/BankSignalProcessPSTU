@@ -25,7 +25,7 @@ AppConfig CommandLineParser::parse(int argc, char** argv)
     if (equals(modeArgument, "workstation"))
     {
         config.mode = AppMode::Workstation;
-        config.signalPort = static_cast<std::uint16_t>(6000);
+        config.serverPort = static_cast<std::uint16_t>(6000);
         if (argc >= 3)
         {
             config.workstationId = argv[2];

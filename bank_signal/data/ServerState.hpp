@@ -8,6 +8,7 @@ class ServerState {
 public:
 	explicit ServerState(uintptr_t timeout);
 	void registerCashier(const std::string& id, const std::string& name);
+	void unregisterCashier(const std::string& id);
 	void updateCashierState(const std::string& id, CashierState state);
 	void updateHeartbeat(const std::string& id);
 

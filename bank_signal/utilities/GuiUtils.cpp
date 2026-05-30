@@ -6,16 +6,16 @@ const char* GuiUtils::StateToText(CashierState state)
     switch (state)
     {
     case CashierState::Ready:
-        return "ГОТОВА";
+        return reinterpret_cast<const char*>(u8"ГОТОВА");
 
     case CashierState::Free:
-        return "СВОБОДНА";
+        return reinterpret_cast<const char*>(u8"СВОБОДНА");
 
     case CashierState::Busy:
-        return "ЗАНЯТА";
+        return reinterpret_cast<const char*>(u8"ЗАНЯТА");
 
     case CashierState::Offline:
-        return "НЕДОСТУПНА";
+        return reinterpret_cast<const char*>(u8"НЕДОСТУПНА");
 
     default:
         throw std::exception("unknown state");
@@ -27,16 +27,16 @@ const char* GuiUtils::StateToDescription(CashierState state)
     switch (state)
     {
     case CashierState::Ready:
-        return "Касса готова к работе";
+        return reinterpret_cast<const char*>(u8"Касса готова к работе");
 
     case CashierState::Free:
-        return "Можно направить клиента";
+        return reinterpret_cast<const char*>(u8"Можно направить клиента");
 
     case CashierState::Busy:
-        return "Идёт обслуживание клиента";
+        return reinterpret_cast<const char*>(u8"Идёт обслуживание клиента");
 
     case CashierState::Offline:
-        return "Нет связи с процессом кассы";
+        return reinterpret_cast<const char*>(u8"Нет связи с процессом кассы");
 
     default:
         throw std::exception("unknown state");

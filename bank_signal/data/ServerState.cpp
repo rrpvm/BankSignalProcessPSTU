@@ -15,6 +15,12 @@ void ServerState::registerCashier(const std::string& id, const std::string& name
     mGlobalData[id] = info;
 }
 
+void ServerState::unregisterCashier(const std::string& id)
+{
+    std::lock_guard guard(this->mLock);
+    mGlobalData.erase(id);
+}
+
 void ServerState::updateCashierState(const std::string& id, CashierState state)
 {
     std::lock_guard guard(this->mLock);

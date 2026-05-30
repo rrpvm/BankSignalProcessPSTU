@@ -1,5 +1,7 @@
 #pragma once
 #include "RegisterCommand.h"
+#include "SendStateCommand.h"
+#include "RegisterResponseCommand.h"
 
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -26,10 +28,10 @@ public:
                 );
             }
 
-            if (type == "state")
+            if (type == REGISTER_RESPONSE_COMMAND_TYPE)
             {
-                return std::make_unique<RegisterCommand>(
-                    RegisterCommand::fromJson(json)
+                return std::make_unique<RegisterResponseCommand>(
+                    RegisterResponseCommand::fromJson(json)
                 );
             }
 
@@ -40,10 +42,10 @@ public:
                 );
             }
 
-            if (type == "get_state")
+            if (type == SEND_STATE_COMMAND_TYPE)
             {
-                return std::make_unique<RegisterCommand>(
-                    RegisterCommand::fromJson(json)
+                return std::make_unique<SendStateCommand>(
+                    SendStateCommand::fromJson(json)
                 );
             }
         }

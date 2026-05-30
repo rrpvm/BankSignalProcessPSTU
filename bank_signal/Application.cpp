@@ -2,6 +2,7 @@
 #include "screen/ScreenFactory.hpp"
 #include "server/ServerHandler.h"
 #include "workstation/WorkstationHandler.h"
+#include "workstation/WorkstationController.h"
 
 Application::Application(const AppConfig& config)
     : window_(1280, 720, "Bank Signal System")
@@ -18,14 +19,15 @@ Application::Application(const AppConfig& config)
 
         _screen = ScreenFactory::create(
             config,
-            mCashierRepository
+            mCashierRepository,
+            nullptr
         );
     }
     else
     {
-        _screen = ScreenFactory::create(config, nullptr);
-        mHandler = std::make_unique<WorkstationHandler>();
-
+        mWorkstationController = std::make_shared<WorkstationController>(config);
+        _screen = ScreenFactory::create(config, nullptr,mWorkstationController);
+        mHandler = std::make_unique<WorkstationHandler>(mWorkstationController);
     }
 }
 

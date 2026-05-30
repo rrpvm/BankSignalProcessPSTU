@@ -6,7 +6,7 @@
 #include "ServerHandler.h"
 #include "../data/CommandFactory.h"
 #include "../shared.h"
-
+#include "../utilities/NetworkUtils.h"
 using json = nlohmann::json;
 
 ServerHandler::ServerHandler(std::shared_ptr<CashierRepository> repository)
@@ -260,16 +260,27 @@ void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, con
     }
     switch (command->getType())
     {
-    case CommandsType::Register:
-        handleRegisterCommand(clientSocket, loopId, dynamic_cast<RegisterCommand*>(command.get()));
+    case CommandsType::Register: {
+        auto info = handleRegisterCommand(clientSocket, loopId, dynamic_cast<RegisterCommand*>(command.get()));
+        if (info.has_value()) {
+            CashierInfo value = info.value();
+            auto response = RegisterResponseCommand(value.cashierId, value.mName, value.mState);
+            NetworkUtils::sendJson(clientSocket,response.toJson());
+        }
         break;
+    }
+
+    case CommandsType::State:
+        handleGetState(clientSocket, loopId, dynamic_cast<SendStateCommand*>(command.get()));
+        break;
+
     default:
         std::cout << "unhandled type" << command->getCommandTypeName() << std::endl;
     }
 
 }
 
-void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command)
+std::optional<CashierInfo> ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command)
 {
     const auto& workerId = command->cashierId();
     appLogger() << "client handleRegisterCommand() {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerId << "}";
@@ -289,7 +300,8 @@ void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, 
         info.lastHeartBeat = std::chrono::steady_clock::now();
         info.mName = command->cashierName();
         info.mState = CashierState::Ready;
-        return  addWorker(session, info, loopId);
+        addWorker(session, info, loopId);
+        return info;
     }
     //has:
     WorkerSession existedSession;
@@ -302,7 +314,7 @@ void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, 
         else {
             std::cout << "непредвиденная ошибка" << std::endl;
             //closeConnection
-            return;
+            return std::nullopt;
         }
     }
     const auto now = std::chrono::steady_clock::now();
@@ -314,13 +326,25 @@ void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, 
         appLogger() << "kill old connection due to inactive {socket,loopId,workerId}={" << existedSession.mConnectedSocket << "," << existedSession.loopId << "," << workerId << "}";
         killConnection(existedSession.mConnectedSocket, workerId);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        handleRegisterCommand(clientSocket, loopId, command);
+        return  handleRegisterCommand(clientSocket, loopId, command);
     }
     else {
         appLogger() << "client denied registration due to connection already exist {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerId << "}";
         killConnection(clientSocket, workerId);
-        return;
+        return std::nullopt;
     }
+}
+
+void ServerHandler::handleGetState(SOCKET clientSocket, uint64_t loopId, SendStateCommand* command)
+{
+    const auto& workerState = command->takeInfo();
+    appLogger() << "client handleGetState() {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerState.cashierId << "}";
+   // appLogger() << "workerId new state" << "state:" << workerState.mState << " id" << workerState.cashierId;
+
+    mSessions[workerState.cashierId].lastActivity = std::chrono::steady_clock::now();//crash danger
+
+    mState->updateCashierState(workerState.cashierId, workerState.mState);
+    publishStateSnapshotLocked();
 }
 
 void ServerHandler::killConnection(SOCKET socket, const std::string& workerId)
@@ -336,7 +360,7 @@ void ServerHandler::addWorker(WorkerSession session, CashierInfo info, uint64_t 
         mSessionsBinding[loopId] = session.workerId;
     }
     mState->registerCashier(info.cashierId,info.mName);
-    this->mRepository->setSnapshot(mState->getCashiersSnapshot());
+    publishStateSnapshotLocked();
 }
 
 void ServerHandler::cleanupWorkerSession(uint64_t loopId)
@@ -359,6 +383,8 @@ void ServerHandler::cleanupWorkerSession(uint64_t loopId)
     }
 
     mSessionsBinding.erase(bindingIt);
+    this->mState->unregisterCashier(workerId);
+    publishStateSnapshotLocked();
 }
 
 

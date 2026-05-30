@@ -8,10 +8,8 @@
 struct AppConfig final
 {
     AppMode mode = AppMode::Server;
-
-    std::string workstationId = "W01";
-    std::uint16_t signalPort = 6100;
-
     std::string serverHost = "127.0.0.1";
+    std::string workstationId = "W01";
+    std::string workstationName = "Kassa-00";   
     std::uint16_t serverPort = 6000;
 };
