@@ -51,9 +51,21 @@ add_executable (bank_signal "bank_signal.cpp" "bank_signal.h"  "render/GuiWindow
   
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
- "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h" "repository/CashierRepository.h" "repository/CashierRepository.cpp" "presentation/CashierModel.h" "utilities/BaseUtils.h")
+ "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h" "repository/CashierRepository.h" "repository/CashierRepository.cpp" "presentation/CashierModel.h" "utilities/BaseUtils.h" "screen/ClientScreen.cpp" "render/ysFont.hpp")
+ ##Для теста workstation
+ add_executable (bank_signal_workstation "cashier_workstation.cpp" "bank_signal.h"  "render/GuiWindow.cpp"  "render/ImGuiLayer.cpp"  "utilities/CommandLineParser.cpp"  ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+
+  
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+ "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h" "repository/CashierRepository.h" "repository/CashierRepository.cpp" "presentation/CashierModel.h" "utilities/BaseUtils.h" "screen/ClientScreen.cpp" "render/ysFont.hpp")
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET bank_signal PROPERTY CXX_STANDARD 20)
+   ##Для теста workstation
+   set_property(TARGET bank_signal_workstation PROPERTY CXX_STANDARD 20)
 endif()
 target_include_directories(bank_signal PRIVATE
     ${imgui_SOURCE_DIR}
@@ -64,6 +76,30 @@ target_link_libraries(bank_signal PRIVATE
     glfw
     OpenGL::GL
 )
+##Для теста workstation
+target_include_directories(bank_signal_workstation PRIVATE
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+##Для теста workstation
+target_link_libraries(bank_signal_workstation PRIVATE
+    nlohmann_json::nlohmann_json
+    glfw
+    OpenGL::GL
+)
+
+add_custom_target(run_server
+    COMMAND bank_signal server 
+    DEPENDS bank_signal
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+add_custom_target(run_workstation_1
+    COMMAND bank_signal_workstation workstation  KASSA-1
+    DEPENDS bank_signal_workstation
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
 
 ##if (WIN32)
   ##  target_link_libraries(bank_queue PRIVATE ws2_32)

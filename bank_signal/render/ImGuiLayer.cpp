@@ -3,7 +3,7 @@
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
-
+#include "../render/ysFont.hpp"
 #include <stdexcept>
 
 ImGuiLayer::ImGuiLayer(GLFWwindow* window)
@@ -18,6 +18,17 @@ ImGuiLayer::ImGuiLayer(GLFWwindow* window)
     ImGui::CreateContext();
 
     ImGuiIO& io = ImGui::GetIO();
+    ImFontConfig fontConfig;
+    fontConfig.FontDataOwnedByAtlas = false;
+
+    io.Fonts->AddFontFromMemoryCompressedTTF(
+        ysfont_compressed_data,
+        ysfont_compressed_size,
+        24.0f,
+        &fontConfig,
+        io.Fonts->GetGlyphRangesCyrillic()
+    );
+
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     ImGui::StyleColorsDark();

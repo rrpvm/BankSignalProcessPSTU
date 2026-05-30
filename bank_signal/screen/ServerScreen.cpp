@@ -13,42 +13,6 @@ ServerScreen::ServerScreen(const AppConfig& config,  std::shared_ptr<CashierRepo
 
 void ServerScreen::render()
 {
-    /*
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
-  
-
-    ImGuiWindowFlags window_flags =
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus;
-
-    ImGui::Begin("MainRootWindow", nullptr, window_flags);
-
-    renderHeader();
-
-    ImGui::Separator();
-    renderControls();
-
-    ImGui::Separator();
-    renderWorkstationsTable();
-
-    ImGui::Separator();
-    renderQueue();
-
-    ImGui::Separator();
-    renderLog();
-
-    ImGui::End();
-    */
-
-
-
     if (mCashierRepository.get()) {
         const auto& data = mCashierRepository->getSnapshot();
         this->mPresentData = mapVector<CashierInfo, CashierModel>(data, [this](const CashierInfo& info) {
@@ -56,11 +20,6 @@ void ServerScreen::render()
         });
     }
   
-    alternateRender();
-}
-
-void ServerScreen::alternateRender() const
-{
     ImGuiViewport* viewport = ImGui::GetMainViewport();
 
     ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -80,11 +39,10 @@ void ServerScreen::alternateRender() const
     renderHeader();
     ImGui::Separator();
 
-    DrawCashierCardsGrid(this->mPresentData);
+    drawCashierCardsGrid(this->mPresentData);
 
     ImGui::End();
 }
-
 
 void ServerScreen::renderCashierCard(const CashierModel& cashier, const CashierInfo& info, float cardHeight) const
 {
@@ -138,7 +96,7 @@ void ServerScreen::renderCashierCard(const CashierModel& cashier, const CashierI
     ImGui::PopStyleVar(2);
 }
 
-void ServerScreen::DrawCashierCardsGrid(const std::vector<CashierModel>& cashiers) const
+void ServerScreen::drawCashierCardsGrid(const std::vector<CashierModel>& cashiers) const
 {
     float availableWidth = ImGui::GetContentRegionAvail().x;
 
@@ -192,74 +150,7 @@ void ServerScreen::renderHeader() const
     ImGui::Text("Purpose: queue storage, workstation status processing, billboard updates");
 }
 
-void ServerScreen::renderControls()
-{
-   /* if (ImGui::Button("Add client"))
-    {
-        const std::string ticket = std::format("A{:03}", nextTicketNumber_++);
-        waitingQueue_.push_back(ticket);
-        log_.push_back("Client added: " + ticket);
-    }
 
-    ImGui::SameLine();
-
-    if (ImGui::Button("Reset queue"))
-    {
-        waitingQueue_.clear();
-        nextTicketNumber_ = 1;
-        log_.push_back("Queue was reset");
-    }*/
-}
-
-void ServerScreen::renderWorkstationsTable() const
-{
-   /* ImGui::Text("Connected workstations");
-
-    if (ImGui::BeginTable("workstations_table", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
-    {
-        ImGui::TableSetupColumn("ID");
-        ImGui::TableSetupColumn("Signal port");
-        ImGui::TableSetupColumn("Status");
-        ImGui::TableSetupColumn("Current ticket");
-        ImGui::TableHeadersRow();
-
-        for (const auto& workstation : workstations_)
-        {
-            ImGui::TableNextRow();
-
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s", workstation.id.c_str());
-
-            ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%d", workstation.signalPort);
-
-            ImGui::TableSetColumnIndex(2);
-            ImGui::Text("%s", workstation.status.c_str());
-
-            ImGui::TableSetColumnIndex(3);
-            ImGui::Text("%s", workstation.currentTicket.c_str());
-        }
-
-        ImGui::EndTable();
-    }*/
-}
-
-void ServerScreen::renderQueue() const
-{
-    /*
-    ImGui::Text("Waiting queue");
-
-    if (waitingQueue_.empty())
-    {
-        ImGui::Text("Queue is empty");
-        return;
-    }
-
-    for (const auto& ticket : waitingQueue_)
-    {
-        ImGui::BulletText("%s", ticket.c_str());
-    }*/
-}
 
 void ServerScreen::renderLog() const
 {

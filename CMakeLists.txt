@@ -17,3 +17,5 @@ project ("bank_signal")
 
 # Включите подпроекты.
 add_subdirectory ("bank_signal")
+
+

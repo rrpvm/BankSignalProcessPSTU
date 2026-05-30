@@ -32,7 +32,9 @@ void Application::stop()
         return;
     }
     mRunning = false;
-    this->mHandler->stop();
+    if (mHandler.get()) {
+        this->mHandler->stop();
+    }
     if (networkHandlerThread.joinable()) {
         networkHandlerThread.join();
     }
@@ -43,9 +45,10 @@ void Application::run()
     this->mRunning = true;
     this->networkHandlerThread = std::thread([this]()
         {
-            mHandler->start();
+            if (mHandler.get())
+                mHandler->start();
         });
-    
+
     while (!window_.shouldClose())
     {
         window_.pollEvents();
