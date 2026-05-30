@@ -33,6 +33,7 @@ void WorkstationHandler::start()
     this->isRunning.store(true);
     if (!connectToServer()) {
         isRunning.store(false);
+        stop();
         return;
     }
 
@@ -43,6 +44,7 @@ void WorkstationHandler::start()
 void WorkstationHandler::stop()
 {
 	this->isRunning = false;
+    throw std::exception();
 }
 
 bool WorkstationHandler::connectToServer()

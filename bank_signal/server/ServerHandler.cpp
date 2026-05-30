@@ -40,7 +40,6 @@ void ServerHandler::start()
 
     this->isRunning = true;
     incomingConnectionsLoop();
-    /*
     {
         std::lock_guard<std::mutex> lock(mClientThreadsMutex);
 
@@ -51,10 +50,9 @@ void ServerHandler::start()
                 clientThread.join();
             }
         }
-
         mClientThreads.clear();
     }
-    */
+    
 }
 
 void ServerHandler::stop()
@@ -265,11 +263,12 @@ void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, con
     auto command = CommandFactory::fromJson(inputMessage);
     if (!command.get()) {
         std::cout << "from json factory error" << std::endl;
+        return;
     }
     switch (command->getType())
     {
     case CommandsType::Register:
-        handleRegisterCommand(clientSocket,loopId, dynamic_cast<RegisterCommand*>(command.get()));
+        handleRegisterCommand(clientSocket, loopId, dynamic_cast<RegisterCommand*>(command.get()));
         break;
     default:
         std::cout << "unhandled type" << command->getCommandTypeName() << std::endl;
@@ -287,23 +286,24 @@ void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, 
     }
 
     if (!hasAlreadySession) {
-        WorkerSession session = {};
-        session.cashierId = workerId;
-        session.socket = clientSocket;
-        CashierInfo info = {};
+        WorkerSession session{};
+        session.workerId = workerId;
+        session.mConnectedSocket = clientSocket;
+        session.loopId = loopId;
+        CashierInfo info{};
         info.cashierId = workerId;
         info.lastHeartBeat = std::chrono::steady_clock::now();
         info.mName = command->cashierName();
         info.mState = CashierState::Ready;
-        return  addWorker(session, info);
+        return  addWorker(session, info,loopId);
     }
     //has:
-    WorkerSession session;
+    WorkerSession existedSession;
     {
         std::lock_guard guard(this->_mutex);
         auto result = mSessions.find(workerId);
         if (result != mSessions.end()) {
-            session = result->second;
+            existedSession = result->second;
         }
         else {
             std::cout << "непредвиденная ошибка" << std::endl;
@@ -313,16 +313,16 @@ void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, 
     }
     const auto now = std::chrono::steady_clock::now();
     const auto inactiveFor = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - session.lastActivity
+        now - existedSession.lastActivity
     );
     if (inactiveFor.count() > 5000) {
-        //shutdown old
-        //add new worker
-        killConnection(session.socket, workerId);
-       // handleRegisterCommand(clientSocket, loopId, command);
+        //shutdown old and create new  connection
+        killConnection(existedSession.mConnectedSocket, workerId);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        handleRegisterCommand(clientSocket, loopId, command);
     }
     else {
-        std::cout << "отмена регистрации" << std::endl;
+        std::cout << "cancel new connection dut to already life worker" << std::endl;
         killConnection(clientSocket, workerId);
         return;
     }
@@ -333,11 +333,12 @@ void ServerHandler::killConnection(SOCKET socket, const std::string& workerId)
     shutdown(socket, SD_BOTH);
 }
 
-void ServerHandler::addWorker(WorkerSession session, CashierInfo info)
+void ServerHandler::addWorker(WorkerSession session, CashierInfo info, uint64_t loopId )
 {
     {
         std::lock_guard guard(this->_mutex);
         mSessions[info.cashierId] = session;
+        mSessionsBinding[loopId] = session.workerId;
     }
     mState->registerCashier(info.cashierId,info.mName);
     this->mRepository->setSnapshot(mState->getCashiersSnapshot());
