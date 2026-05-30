@@ -51,7 +51,7 @@ add_executable (bank_signal "bank_signal.cpp" "bank_signal.h"  "render/GuiWindow
   
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
- "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp")
+ "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h")
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET bank_signal PROPERTY CXX_STANDARD 20)
 endif()
