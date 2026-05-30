@@ -4,16 +4,13 @@
 #include <nlohmann/json.hpp>
 #include "Application.hpp"
 
-using namespace std;
-using json = nlohmann::json;
+
 int main(int argc, char** argv)
 {
     try
     {
         const AppConfig config = CommandLineParser::parse(argc, argv);
 
-
-        std::cout << config.serverPort;
         Application app(config);
         app.run();
 

@@ -63,3 +63,13 @@ ImVec4 GuiUtils::StateToColor(CashierState state)
         return ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
     }
 }
+
+CashierModel GuiUtils::CashierInfoToPresentationModel(const CashierInfo& info)
+{
+    auto model =  CashierModel();
+    model.id = info.cashierId.c_str();
+    model.currentTicket = "1337";
+    model.status = StateToText(info.mState);
+    model.fColor = StateToColor(info.mState);
+    return model;
+}

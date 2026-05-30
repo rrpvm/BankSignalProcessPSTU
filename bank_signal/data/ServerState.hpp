@@ -12,6 +12,8 @@ public:
 	void updateHeartbeat(const std::string& id);
 
 	void checkTimeouts();
+
+	void reset();
 	std::vector<CashierInfo> getCashiersSnapshot();
 private:
 	std::unordered_map<std::string, CashierInfo> mGlobalData;

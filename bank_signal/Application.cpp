@@ -5,12 +5,25 @@
 Application::Application(const AppConfig& config)
     : window_(1280, 720, "Bank Signal System")
     , imguiLayer_(window_.nativeHandle())
-    , _screen(ScreenFactory::create(config))
     , mRunning(false)
-
 {
-    this->mHandler = std::make_unique<ServerHandler>();
+    if (config.mode == AppMode::Server)
+    {
+        mCashierRepository = std::make_shared<CashierRepository>();
 
+        mHandler = std::make_unique<ServerHandler>(
+            mCashierRepository
+        );
+
+        _screen = ScreenFactory::create(
+            config,
+            mCashierRepository
+        );
+    }
+    else
+    {
+        _screen = ScreenFactory::create(config, nullptr);
+    }
 }
 
 void Application::stop()
@@ -19,6 +32,7 @@ void Application::stop()
         return;
     }
     mRunning = false;
+    this->mHandler->stop();
     if (networkHandlerThread.joinable()) {
         networkHandlerThread.join();
     }
@@ -31,6 +45,7 @@ void Application::run()
         {
             mHandler->start();
         });
+    
     while (!window_.shouldClose())
     {
         window_.pollEvents();

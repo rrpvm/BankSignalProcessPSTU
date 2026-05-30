@@ -1,24 +1,14 @@
 #include "ServerScreen.hpp"
 
-
 #include <format>
+#include "../utilities/BaseUtils.h"
 #include "../utilities/GuiUtils.hpp"
 
-
-ServerScreen::ServerScreen(const AppConfig& config)
+ServerScreen::ServerScreen(const AppConfig& config,  std::shared_ptr<CashierRepository> repository)
     : config_(config)
+    , mCashierRepository(std::move(repository))
 {
-    workstations_.push_back({ "W01", "FREE", "-",GuiUtils::StateToColor(CashierState::Free), 6101});
-    workstations_.push_back({ "W02", "BUSY", "A001",GuiUtils::StateToColor(CashierState::Busy), 6102 });
-    workstations_.push_back({ "W03", "OFFLINE", "-",GuiUtils::StateToColor(CashierState::Offline), 6103 });
-    workstations_.push_back({ "W04", "OFFLINE", "-",GuiUtils::StateToColor(CashierState::Offline), 6103 });
-    workstations_.push_back({ "W05", "OFFLINE", "-",GuiUtils::StateToColor(CashierState::Offline), 6103 });
-
-    waitingQueue_.push_back("A002");
-    waitingQueue_.push_back("A003");
-
-    log_.push_back("Server GUI initialized");
-    log_.push_back("Waiting for workstation connections");
+   
 }
 
 void ServerScreen::render()
@@ -56,6 +46,16 @@ void ServerScreen::render()
 
     ImGui::End();
     */
+
+
+
+    if (mCashierRepository.get()) {
+        const auto& data = mCashierRepository->getSnapshot();
+        this->mPresentData = mapVector<CashierInfo, CashierModel>(data, [this](const CashierInfo& info) {
+            return GuiUtils::CashierInfoToPresentationModel(info);
+        });
+    }
+  
     alternateRender();
 }
 
@@ -80,13 +80,13 @@ void ServerScreen::alternateRender() const
     renderHeader();
     ImGui::Separator();
 
-    DrawCashierCardsGrid(this->workstations_);
+    DrawCashierCardsGrid(this->mPresentData);
 
     ImGui::End();
 }
 
 
-void ServerScreen::renderCashierCard(const WorkstationViewModel& cashier, const CashierInfo& info, float cardHeight) const
+void ServerScreen::renderCashierCard(const CashierModel& cashier, const CashierInfo& info, float cardHeight) const
 {
     ImVec4 stateColor = cashier.fColor;
 
@@ -95,12 +95,12 @@ void ServerScreen::renderCashierCard(const WorkstationViewModel& cashier, const 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.10f, 0.10f, 0.11f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Border, stateColor);
 
-    std::string childId = "cashier_card_" + cashier.id;
+    std::string childId = "cashier_card_" + std::string(cashier.id);
 
     ImGui::BeginChild(childId.c_str(), ImVec2(0.0f, cardHeight), true);
 
-    ImGui::Text("%s", cashier.id.c_str());
-    ImGui::TextDisabled("ID: %s", cashier.id.c_str());
+    ImGui::Text("%s", cashier.id);
+    ImGui::TextDisabled("ID: %s", cashier.id);
 
     ImGui::Spacing();
 
@@ -112,10 +112,6 @@ void ServerScreen::renderCashierCard(const WorkstationViewModel& cashier, const 
 
     ImGui::Spacing();
 
-    //ImGui::Text("Порт: %d", cashier.signalPort);
-   // ImGui::Text("Талон: %s", cashier.currentTicket.c_str());
-
-    ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
@@ -142,7 +138,7 @@ void ServerScreen::renderCashierCard(const WorkstationViewModel& cashier, const 
     ImGui::PopStyleVar(2);
 }
 
-void ServerScreen::DrawCashierCardsGrid(const std::vector<WorkstationViewModel>& cashiers) const
+void ServerScreen::DrawCashierCardsGrid(const std::vector<CashierModel>& cashiers) const
 {
     float availableWidth = ImGui::GetContentRegionAvail().x;
 
@@ -198,7 +194,7 @@ void ServerScreen::renderHeader() const
 
 void ServerScreen::renderControls()
 {
-    if (ImGui::Button("Add client"))
+   /* if (ImGui::Button("Add client"))
     {
         const std::string ticket = std::format("A{:03}", nextTicketNumber_++);
         waitingQueue_.push_back(ticket);
@@ -212,12 +208,12 @@ void ServerScreen::renderControls()
         waitingQueue_.clear();
         nextTicketNumber_ = 1;
         log_.push_back("Queue was reset");
-    }
+    }*/
 }
 
 void ServerScreen::renderWorkstationsTable() const
 {
-    ImGui::Text("Connected workstations");
+   /* ImGui::Text("Connected workstations");
 
     if (ImGui::BeginTable("workstations_table", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
     {
@@ -245,11 +241,12 @@ void ServerScreen::renderWorkstationsTable() const
         }
 
         ImGui::EndTable();
-    }
+    }*/
 }
 
 void ServerScreen::renderQueue() const
 {
+    /*
     ImGui::Text("Waiting queue");
 
     if (waitingQueue_.empty())
@@ -261,15 +258,16 @@ void ServerScreen::renderQueue() const
     for (const auto& ticket : waitingQueue_)
     {
         ImGui::BulletText("%s", ticket.c_str());
-    }
+    }*/
 }
 
 void ServerScreen::renderLog() const
 {
-    ImGui::Text("Server log");
+   /* ImGui::Text("Server log");
 
     for (const auto& record : log_)
     {
         ImGui::BulletText("%s", record.c_str());
     }
+    */
 }

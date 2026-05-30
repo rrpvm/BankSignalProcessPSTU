@@ -61,6 +61,10 @@ void ServerState::checkTimeouts()
     }
 }
 
+void ServerState::reset() {
+    this->mGlobalData.clear();
+}
+
 std::vector<CashierInfo> ServerState::getCashiersSnapshot()
 {
 

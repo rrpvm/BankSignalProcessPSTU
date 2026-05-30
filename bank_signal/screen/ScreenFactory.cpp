@@ -3,12 +3,12 @@
 
 #include <stdexcept>
 
-std::unique_ptr<IScreen> ScreenFactory::create(const AppConfig& config)
+std::unique_ptr<IScreen> ScreenFactory::create(const AppConfig& config, std::shared_ptr<CashierRepository> repository)
 {
     switch (config.mode)
     {
     case AppMode::Server:
-        return std::make_unique<ServerScreen>(config);
+        return std::make_unique<ServerScreen>(config, repository);
 
         /*case AppMode::Workstation:
              return std::make_unique<WorkstationScreen>(config);
