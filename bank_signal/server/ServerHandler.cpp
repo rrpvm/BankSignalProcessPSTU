@@ -1,9 +1,13 @@
+#pragma comment(lib, "Ws2_32.lib")
 #include "ServerHandler.h"
 #include <thread>
 #include <chrono>
+#include <nlohmann/json.hpp>
 #include <iostream>
 
-#pragma comment(lib, "Ws2_32.lib")
+
+using json = nlohmann::json;
+
 ServerHandler::ServerHandler(std::shared_ptr<CashierRepository> repository)
 {
 	this->mState = std::make_unique<ServerState>(5u);
@@ -56,8 +60,58 @@ void ServerHandler::start()
 void ServerHandler::stop()
 {
 	this->isRunning = false;
+    if (mListenSocket != INVALID_SOCKET)
+    {
+        shutdown(mListenSocket, SD_BOTH);
+        closesocket(mListenSocket);
+        mListenSocket = INVALID_SOCKET;
+    }
 }
+void ServerHandler::initSocket()
+{
+    mListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
+    if (mListenSocket == INVALID_SOCKET)
+    {
+        int error = WSAGetLastError();
+        std::cout << "Server socket creation failed. WSA error: " << error << "\n";
+        return;
+    }
+
+    sockaddr_in serverAddress{};
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(6000);
+    inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr);
+
+    const int bindResult = bind(
+        mListenSocket,
+        reinterpret_cast<sockaddr*>(&serverAddress),
+        sizeof(serverAddress)
+    );
+
+    if (bindResult == SOCKET_ERROR)
+    {
+        std::cout << "Bind failed. Error: " << WSAGetLastError() << "\n";
+        closesocket(mListenSocket);
+        mListenSocket = INVALID_SOCKET;
+        return;
+    }
+
+    const int listenResult = listen(mListenSocket, SOMAXCONN);
+
+    if (listenResult == SOCKET_ERROR)
+    {
+        std::cout << "Listen failed. Error: " << WSAGetLastError() << "\n";
+        closesocket(mListenSocket);
+        mListenSocket = INVALID_SOCKET;
+        return;
+    }
+
+    u_long nonBlocking = false;
+    ioctlsocket(mListenSocket, FIONBIO, &nonBlocking);
+
+    std::cout << "Server started on 127.0.0.1:6000\n";
+}
 void ServerHandler::incomingConnectionsLoop()
 {
     initSocket();
@@ -115,69 +169,41 @@ void ServerHandler::incomingConnectionsLoop()
 
     std::cout << "Accept loop stopped\n";
 }
-
-void ServerHandler::initSocket()
-{
-    mListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-    if (mListenSocket == INVALID_SOCKET)
-    {
-        int error = WSAGetLastError();
-        std::cout << "Server socket creation failed. WSA error: " << error << "\n";
-        return;
-    }
-
-    sockaddr_in serverAddress{};
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(6000);
-    inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr);
-
-    const int bindResult = bind(
-        mListenSocket,
-        reinterpret_cast<sockaddr*>(&serverAddress),
-        sizeof(serverAddress)
-    );
-
-    if (bindResult == SOCKET_ERROR)
-    {
-        std::cout << "Bind failed. Error: " << WSAGetLastError() << "\n";
-        closesocket(mListenSocket);
-        mListenSocket = INVALID_SOCKET;
-        return;
-    }
-
-    const int listenResult = listen(mListenSocket, SOMAXCONN);
-
-    if (listenResult == SOCKET_ERROR)
-    {
-        std::cout << "Listen failed. Error: " << WSAGetLastError() << "\n";
-        closesocket(mListenSocket);
-        mListenSocket = INVALID_SOCKET;
-        return;
-    }
-
-    u_long nonBlocking = 1;
-    ioctlsocket(mListenSocket, FIONBIO, &nonBlocking);
-
-    std::cout << "Server started on 127.0.0.1:6000\n";
-}
-
 void ServerHandler::clientLoop(SOCKET clientSocket)
 {
     char buffer[1024];
-
+    std::string receiveBuffer;
+    constexpr size_t maxMessageSize = 1024 * 1024;
     while (isRunning.load())
     {
-        int received = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+        int received = recv(clientSocket, buffer, sizeof(buffer), 0);
 
         if (received > 0)
         {
-            buffer[received] = '\0';
+            receiveBuffer.append(buffer, received);
+            if (receiveBuffer.size() > maxMessageSize)
+            {
+                std::cout << "receive buffer is too large. client disconnected.\n";
+                break;
+            }
+            size_t newlinePos = std::string::npos;
+            while ((newlinePos = receiveBuffer.find('\n')) != std::string::npos)
+            {
+                std::string message = receiveBuffer.substr(0, newlinePos);
 
-            std::string message(buffer);
+                receiveBuffer.erase(0, newlinePos + 1);
 
-            std::cout << "message recv: " << message << std::endl;
-            //handleMessage(message);
+                if (!message.empty() && message.back() == '\r')
+                {
+                    message.pop_back();
+                }
+
+                if (!message.empty())
+                {
+                    std::cout << "message recv: " << message << std::endl;
+                    handleInputMessage(message);
+                }
+            }
         }
         else if (received == 0)
         {
@@ -206,5 +232,27 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
     closesocket(clientSocket);
 
     std::cout << "Client disconnected" << std::endl;
+}
+
+void ServerHandler::handleInputMessage(const std::string& msg)
+{
+    json inputMessage;
+    try
+    {
+        inputMessage = json::parse(msg);
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "JSON parse error: " << e.what() << std::endl;
+       // sendError(clientSocket, "bad_json");
+        return;
+    }
+    if (!inputMessage.contains("type") || !inputMessage["type"].is_string())
+    {
+        std::cout << "missing type" << std::endl;
+       // sendError(clientSocket, "missing_type");
+        return;
+    }
+
 }
 

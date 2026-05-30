@@ -17,6 +17,7 @@ private:
 	void incomingConnectionsLoop();
 	void initSocket();
 	void clientLoop(SOCKET clientSocket);
+	void handleInputMessage(const std::string& msg);
 private:
 	std::shared_ptr<CashierRepository> mRepository;
 	std::unique_ptr<ServerState> mState;
