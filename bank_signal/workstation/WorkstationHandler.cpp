@@ -44,7 +44,7 @@ void WorkstationHandler::start()
 void WorkstationHandler::stop()
 {
 	this->isRunning = false;
-    throw std::exception();
+    exit(1);
 }
 
 bool WorkstationHandler::connectToServer()

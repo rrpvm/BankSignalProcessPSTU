@@ -3,6 +3,7 @@
 #include <format>
 #include "../utilities/BaseUtils.h"
 #include "../utilities/GuiUtils.hpp"
+#include "../shared.h"
 
 ServerScreen::ServerScreen(const AppConfig& config,  std::shared_ptr<CashierRepository> repository)
     : config_(config)
@@ -40,6 +41,10 @@ void ServerScreen::render()
     ImGui::Separator();
 
     drawCashierCardsGrid(this->mPresentData);
+
+    ImGui::Spacing();
+    renderLog();
+
 
     ImGui::End();
 }
@@ -150,15 +155,45 @@ void ServerScreen::renderHeader() const
     ImGui::Text("Purpose: queue storage, workstation status processing, billboard updates");
 }
 
-
-
 void ServerScreen::renderLog() const
 {
-   /* ImGui::Text("Server log");
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 10.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
 
-    for (const auto& record : log_)
+    ImGui::BeginChild("server_log_panel", ImVec2(0, 220), true);
+
+    ImGui::Text(reinterpret_cast<const char*>(u8"Журнал событий"));
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::BeginChild(
+        "server_log_inner",
+        ImVec2(0, 0),
+        false,
+        ImGuiWindowFlags_HorizontalScrollbar
+    );
+    const auto& logs = appLogger.messages();
+    if (logs.empty())
     {
-        ImGui::BulletText("%s", record.c_str());
+        ImGui::TextDisabled(reinterpret_cast<const char*>(u8"Событий пока нет"));
     }
-    */
+    else
+    {
+        for (const std::string& item : logs)
+        {
+            ImGui::BulletText("%s", item.c_str());
+        }
+
+        if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+        {
+            ImGui::SetScrollHereY(1.0f);
+        }
+    }
+
+    ImGui::EndChild();
+
+    ImGui::EndChild();
+
+    ImGui::PopStyleVar(2);
+    
 }

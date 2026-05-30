@@ -1,10 +1,11 @@
 #pragma comment(lib, "Ws2_32.lib")
-#include "ServerHandler.h"
 #include <thread>
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include "ServerHandler.h"
 #include "../data/CommandFactory.h"
+#include "../shared.h"
 
 using json = nlohmann::json;
 
@@ -169,7 +170,8 @@ void ServerHandler::incomingConnectionsLoop()
 }
 void ServerHandler::clientLoop(SOCKET clientSocket)
 {
-    std::uint64_t connectionId = mNextConnectionId.fetch_add(1);
+    std::uint64_t loopId = mNextConnectionId.fetch_add(1);
+    appLogger() << "client attemp to connect with {socket,loopId}={" << clientSocket << ","<<loopId<<"}";
     char buffer[1024];
     std::string receiveBuffer;
     constexpr size_t maxMessageSize = 1024 * 1024;
@@ -200,7 +202,7 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
                 if (!message.empty())
                 {
                     std::cout << "message recv: " << message << std::endl;
-                    handleInputMessage(clientSocket,connectionId, message);
+                    handleInputMessage(clientSocket,loopId, message);
                 }
             }
         }
@@ -229,17 +231,8 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
 
     shutdown(clientSocket, SD_BOTH);
     closesocket(clientSocket);
-    {
-        std::lock_guard guard(this->_mutex);
-        auto result = mSessionsBinding.find(connectionId);
-        if (result != mSessionsBinding.end()) {
-            auto sessionWorkerId = result->second;
-            mSessions.erase(sessionWorkerId);
-        }
-    }
-   
-
-    std::cout << "Client disconnected" << std::endl;
+    cleanupWorkerSession(loopId);
+    appLogger() << "client disconnected with {socket,loopId}={" << clientSocket << "," << loopId << "}";
 }
 
 void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, const std::string& msg)
@@ -279,6 +272,7 @@ void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, con
 void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command)
 {
     const auto& workerId = command->cashierId();
+    appLogger() << "client handleRegisterCommand() {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerId << "}";
     bool hasAlreadySession = false;
     {
         std::lock_guard guard(this->_mutex);
@@ -295,7 +289,7 @@ void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, 
         info.lastHeartBeat = std::chrono::steady_clock::now();
         info.mName = command->cashierName();
         info.mState = CashierState::Ready;
-        return  addWorker(session, info,loopId);
+        return  addWorker(session, info, loopId);
     }
     //has:
     WorkerSession existedSession;
@@ -317,12 +311,13 @@ void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, 
     );
     if (inactiveFor.count() > 5000) {
         //shutdown old and create new  connection
+        appLogger() << "kill old connection due to inactive {socket,loopId,workerId}={" << existedSession.mConnectedSocket << "," << existedSession.loopId << "," << workerId << "}";
         killConnection(existedSession.mConnectedSocket, workerId);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         handleRegisterCommand(clientSocket, loopId, command);
     }
     else {
-        std::cout << "cancel new connection dut to already life worker" << std::endl;
+        appLogger() << "client denied registration due to connection already exist {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerId << "}";
         killConnection(clientSocket, workerId);
         return;
     }
@@ -343,4 +338,27 @@ void ServerHandler::addWorker(WorkerSession session, CashierInfo info, uint64_t 
     mState->registerCashier(info.cashierId,info.mName);
     this->mRepository->setSnapshot(mState->getCashiersSnapshot());
 }
+
+void ServerHandler::cleanupWorkerSession(uint64_t loopId)
+{
+    std::lock_guard guard(_mutex);
+
+    auto bindingIt = mSessionsBinding.find(loopId);
+    if (bindingIt == mSessionsBinding.end()) {
+        return;
+    }
+
+    const std::string workerId = bindingIt->second;
+
+    auto sessionIt = mSessions.find(workerId);
+
+    if (sessionIt != mSessions.end() &&
+        sessionIt->second.loopId == loopId) {
+        mSessions.erase(sessionIt);
+        std::cout << "Session removed for worker: " << workerId << std::endl;
+    }
+
+    mSessionsBinding.erase(bindingIt);
+}
+
 

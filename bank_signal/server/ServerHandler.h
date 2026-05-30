@@ -3,10 +3,10 @@
 #include "../data//ServerState.hpp"
 #include "../domain/IHandler.h"
 #include "../repository/CashierRepository.h"
-
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <atomic>
+#include <deque>
 class RegisterCommand;
 class ServerHandler : public IHandler {
 public:
@@ -29,6 +29,7 @@ private:
 	};
 	void killConnection(SOCKET socket,const std::string& workerId);
 	void addWorker(WorkerSession session,CashierInfo info, uint64_t loopId );
+	void cleanupWorkerSession(uint64_t loopId);
 private:
 	std::shared_ptr<CashierRepository> mRepository;
 	std::unique_ptr<ServerState> mState;
