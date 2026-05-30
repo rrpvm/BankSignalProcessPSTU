@@ -51,7 +51,7 @@ add_executable (bank_signal "bank_signal.cpp" "bank_signal.h"  "render/GuiWindow
   
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
- "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h" "repository/CashierRepository.h" "repository/CashierRepository.cpp" "presentation/CashierModel.h" "utilities/BaseUtils.h" "screen/ClientScreen.cpp" "render/ysFont.hpp" "workstation/WorkstationHandler.h" "workstation/WorkstationHandler.cpp"  "utilities/NetworkUtils.h" "utilities/NetworkUtils.cpp"  "domain/BaseCommand.h" "data/RegisterCommand.h" "data/RegisterCommand.cpp" "domain/CommandsType.h")
+ "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h" "repository/CashierRepository.h" "repository/CashierRepository.cpp" "presentation/CashierModel.h" "utilities/BaseUtils.h" "screen/ClientScreen.cpp" "render/ysFont.hpp" "workstation/WorkstationHandler.h" "workstation/WorkstationHandler.cpp"  "utilities/NetworkUtils.h" "utilities/NetworkUtils.cpp"  "domain/BaseCommand.h" "data/RegisterCommand.h" "data/RegisterCommand.cpp" "domain/CommandsType.h" "data/CommandFactory.h")
  ##Для теста workstation
  add_executable (bank_signal_workstation "cashier_workstation.cpp" "bank_signal.h"  "render/GuiWindow.cpp"  "render/ImGuiLayer.cpp"  "utilities/CommandLineParser.cpp"  ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -61,7 +61,7 @@ add_executable (bank_signal "bank_signal.cpp" "bank_signal.h"  "render/GuiWindow
   
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
- "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h" "repository/CashierRepository.h" "repository/CashierRepository.cpp" "presentation/CashierModel.h" "utilities/BaseUtils.h" "screen/ClientScreen.cpp" "render/ysFont.hpp" "workstation/WorkstationHandler.h" "workstation/WorkstationHandler.cpp"  "utilities/NetworkUtils.h" "utilities/NetworkUtils.cpp"  "domain/BaseCommand.h" "data/RegisterCommand.h" "data/RegisterCommand.cpp" "domain/CommandsType.h")
+ "Application.cpp" "screen/ScreenFactory.cpp" "screen/ServerScreen.cpp" "utilities/GuiUtils.cpp" "data/ServerState.cpp" "server/ServerHandler.h" "server/ServerHandler.cpp" "domain/IHandler.h" "repository/CashierRepository.h" "repository/CashierRepository.cpp" "presentation/CashierModel.h" "utilities/BaseUtils.h" "screen/ClientScreen.cpp" "render/ysFont.hpp" "workstation/WorkstationHandler.h" "workstation/WorkstationHandler.cpp"  "utilities/NetworkUtils.h" "utilities/NetworkUtils.cpp"  "domain/BaseCommand.h" "data/RegisterCommand.h" "data/RegisterCommand.cpp" "domain/CommandsType.h" "data/CommandFactory.h")
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET bank_signal PROPERTY CXX_STANDARD 20)
    ##Для теста workstation

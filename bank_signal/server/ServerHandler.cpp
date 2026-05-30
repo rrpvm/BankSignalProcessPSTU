@@ -4,7 +4,7 @@
 #include <chrono>
 #include <nlohmann/json.hpp>
 #include <iostream>
-
+#include "../data/CommandFactory.h"
 
 using json = nlohmann::json;
 
@@ -171,6 +171,7 @@ void ServerHandler::incomingConnectionsLoop()
 }
 void ServerHandler::clientLoop(SOCKET clientSocket)
 {
+    std::uint64_t connectionId = mNextConnectionId.fetch_add(1);
     char buffer[1024];
     std::string receiveBuffer;
     constexpr size_t maxMessageSize = 1024 * 1024;
@@ -201,7 +202,7 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
                 if (!message.empty())
                 {
                     std::cout << "message recv: " << message << std::endl;
-                    handleInputMessage(message);
+                    handleInputMessage(clientSocket,connectionId, message);
                 }
             }
         }
@@ -230,11 +231,20 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
 
     shutdown(clientSocket, SD_BOTH);
     closesocket(clientSocket);
+    {
+        std::lock_guard guard(this->_mutex);
+        auto result = mSessionsBinding.find(connectionId);
+        if (result != mSessionsBinding.end()) {
+            auto sessionWorkerId = result->second;
+            mSessions.erase(sessionWorkerId);
+        }
+    }
+   
 
     std::cout << "Client disconnected" << std::endl;
 }
 
-void ServerHandler::handleInputMessage(const std::string& msg)
+void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, const std::string& msg)
 {
     json inputMessage;
     try
@@ -244,15 +254,92 @@ void ServerHandler::handleInputMessage(const std::string& msg)
     catch (const std::exception& e)
     {
         std::cout << "JSON parse error: " << e.what() << std::endl;
-       // sendError(clientSocket, "bad_json");
         return;
     }
     if (!inputMessage.contains("type") || !inputMessage["type"].is_string())
     {
-        std::cout << "missing type" << std::endl;
-       // sendError(clientSocket, "missing_type");
+        std::cout << "missing type, bad msg{" << msg << "}" << std::endl;
         return;
     }
 
+    auto command = CommandFactory::fromJson(inputMessage);
+    if (!command.get()) {
+        std::cout << "from json factory error" << std::endl;
+    }
+    switch (command->getType())
+    {
+    case CommandsType::Register:
+        handleRegisterCommand(clientSocket,loopId, dynamic_cast<RegisterCommand*>(command.get()));
+        break;
+    default:
+        std::cout << "unhandled type" << command->getCommandTypeName() << std::endl;
+    }
+
+}
+
+void ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command)
+{
+    const auto& workerId = command->cashierId();
+    bool hasAlreadySession = false;
+    {
+        std::lock_guard guard(this->_mutex);
+        hasAlreadySession = mSessions.contains(workerId);
+    }
+
+    if (!hasAlreadySession) {
+        WorkerSession session = {};
+        session.cashierId = workerId;
+        session.socket = clientSocket;
+        CashierInfo info = {};
+        info.cashierId = workerId;
+        info.lastHeartBeat = std::chrono::steady_clock::now();
+        info.mName = command->cashierName();
+        info.mState = CashierState::Ready;
+        return  addWorker(session, info);
+    }
+    //has:
+    WorkerSession session;
+    {
+        std::lock_guard guard(this->_mutex);
+        auto result = mSessions.find(workerId);
+        if (result != mSessions.end()) {
+            session = result->second;
+        }
+        else {
+            std::cout << "непредвиденная ошибка" << std::endl;
+            //closeConnection
+            return;
+        }
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const auto inactiveFor = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - session.lastActivity
+    );
+    if (inactiveFor.count() > 5000) {
+        //shutdown old
+        //add new worker
+        killConnection(session.socket, workerId);
+       // handleRegisterCommand(clientSocket, loopId, command);
+    }
+    else {
+        std::cout << "отмена регистрации" << std::endl;
+        killConnection(clientSocket, workerId);
+        return;
+    }
+}
+
+void ServerHandler::killConnection(SOCKET socket, const std::string& workerId)
+{
+    shutdown(socket, SD_BOTH);
+}
+
+void ServerHandler::addWorker(WorkerSession session, CashierInfo info)
+{
+    {
+        std::lock_guard guard(this->_mutex);
+        mSessions[info.cashierId] = session;
+    }
+    mState->registerCashier(info.cashierId,info.mName);
+    this->mRepository->setSnapshot(mState->getCashiersSnapshot());
 }
 

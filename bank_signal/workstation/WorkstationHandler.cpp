@@ -4,6 +4,7 @@
 #include <nlohmann/json.hpp>
 #include "../utilities/NetworkUtils.h"
 #include "../data/RegisterCommand.h"
+#include "../data/CommandFactory.h"
 using json = nlohmann::json;
 WorkstationHandler::WorkstationHandler() {
     WSADATA wsaData{};

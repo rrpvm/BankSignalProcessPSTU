@@ -5,6 +5,7 @@ ServerState::ServerState(uintptr_t timeout) : mHeartbeatTimeout(timeout) {};
 
 void ServerState::registerCashier(const std::string& id, const std::string& name)
 {
+    std::lock_guard guard(this->mLock);
     CashierInfo info;
     info.cashierId = id;
     info.mName = name;
@@ -16,7 +17,7 @@ void ServerState::registerCashier(const std::string& id, const std::string& name
 
 void ServerState::updateCashierState(const std::string& id, CashierState state)
 {
-
+    std::lock_guard guard(this->mLock);
     auto cashier = mGlobalData.find(id);
 
     if (cashier == mGlobalData.end())
@@ -34,7 +35,7 @@ void ServerState::updateCashierState(const std::string& id, CashierState state)
 
 void ServerState::updateHeartbeat(const std::string& id)
 {
-
+    std::lock_guard guard(this->mLock);
     auto it = mGlobalData.find(id);
 
     if (it != mGlobalData.end())
@@ -45,7 +46,7 @@ void ServerState::updateHeartbeat(const std::string& id)
 
 void ServerState::checkTimeouts()
 {
-
+    std::lock_guard guard(this->mLock);
     auto now = std::chrono::steady_clock::now();
 
     for (auto& [id, cashier] : mGlobalData)
@@ -62,12 +63,13 @@ void ServerState::checkTimeouts()
 }
 
 void ServerState::reset() {
+    std::lock_guard guard(this->mLock);
     this->mGlobalData.clear();
 }
 
 std::vector<CashierInfo> ServerState::getCashiersSnapshot()
 {
-
+    std::lock_guard guard(this->mLock);
 
     std::vector<CashierInfo> result;
 

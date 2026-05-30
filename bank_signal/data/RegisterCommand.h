@@ -2,6 +2,7 @@
 #include "../domain/BaseCommand.h"
 #define STATION_FIELD_ID "mStationId"
 #define STATION_FIELD_NAME "mStationName"
+#define REGISTER_COMMAND_TYPE "register"
 
 class RegisterCommand final : public BaseCommand {
 public:
@@ -14,7 +15,7 @@ public:
 	virtual ~RegisterCommand() override {};
 public:
     virtual CommandsType getType() override  { return CommandsType::Register; };
-    virtual std::string getCommandTypeName() override { return "register"; };
+    virtual std::string getCommandTypeName() override { return REGISTER_COMMAND_TYPE; };
     virtual nlohmann::json toJson() override;
     static RegisterCommand fromJson(const nlohmann::json& json);
 public:

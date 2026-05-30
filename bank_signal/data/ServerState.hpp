@@ -17,5 +17,6 @@ public:
 	std::vector<CashierInfo> getCashiersSnapshot();
 private:
 	std::unordered_map<std::string, CashierInfo> mGlobalData;
+	mutable std::mutex mLock;
 	const uintptr_t mHeartbeatTimeout;
 };
