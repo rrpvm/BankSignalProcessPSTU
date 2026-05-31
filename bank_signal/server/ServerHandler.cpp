@@ -28,13 +28,11 @@ ServerHandler::ServerHandler(std::shared_ptr<CashierRepository> repository)
         isInitialisedNetwork = true;
     }
 }
-
 ServerHandler::~ServerHandler()
 {
    
     WSACleanup();
 }
-
 void ServerHandler::start()
 {
     if (isRunning || !isInitialisedNetwork)return;
@@ -55,7 +53,6 @@ void ServerHandler::start()
     }
     
 }
-
 void ServerHandler::stop()
 {
 	this->isRunning = false;
@@ -174,7 +171,7 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
     appLogger() << "client attemp to connect with {socket,loopId}={" << clientSocket << ","<<loopId<<"}";
     char buffer[1024];
     std::string receiveBuffer;
-    constexpr size_t maxMessageSize = 1024 * 1024;
+    constexpr size_t maxMessageSize = 1024 * 1024;//1mb
     while (isRunning.load())
     {
         int received = recv(clientSocket, buffer, sizeof(buffer), 0);
@@ -234,8 +231,7 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
     cleanupWorkerSession(loopId);
     appLogger() << "client disconnected with {socket,loopId}={" << clientSocket << "," << loopId << "}";
 }
-
-void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, const std::string& msg)
+void ServerHandler::handleInputMessage(SOCKET clientSocket, ConnectionId loopId, const std::string& msg)
 {
     json inputMessage;
     try
@@ -252,7 +248,7 @@ void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, con
         std::cout << "missing type, bad msg{" << msg << "}" << std::endl;
         return;
     }
-
+    refreshSessionTimeout(loopId);
     auto command = CommandFactory::fromJson(inputMessage);
     if (!command.get()) {
         std::cout << "from json factory error" << std::endl;
@@ -280,144 +276,192 @@ void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, con
     }
 
 }
-
-std::optional<CashierInfo> ServerHandler::handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command)
+void ServerHandler::killConnection(SOCKET socket)
 {
- 
-    const auto& workerId = command->cashierId();
-    appLogger() << "client handleRegisterCommand() {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerId << "}";
-    bool hasAlreadySession = false;
-    {
-        std::lock_guard guard(this->_mutex);
-        hasAlreadySession = mSessions.contains(workerId);
-    }
-
-    if (!hasAlreadySession) {
-        WorkerSession session{};
-        session.workerId = workerId;
-        session.mConnectedSocket = clientSocket;
-        session.loopId = loopId;
-        CashierInfo info{};
-        info.cashierId = workerId;
-        info.lastHeartBeat = std::chrono::steady_clock::now();
-        info.mName = command->cashierName();
-        info.mState = CashierState::Ready;
-        addWorker(session, info, loopId);
-        return info;
-    }
-    //has:
-    WorkerSession existedSession;
-    {
-        std::lock_guard guard(this->_mutex);
-        auto result = mSessions.find(workerId);
-        if (result != mSessions.end()) {
-            existedSession = result->second;
-        }
-        else {
-            std::cout << "непредвиденная ошибка" << std::endl;
-            //closeConnection
-            return std::nullopt;
-        }
-    }
-    const auto now = std::chrono::steady_clock::now();
-    const auto inactiveFor = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - existedSession.lastActivity
-    );
-    if (inactiveFor.count() > 5000) {
-        //shutdown old and create new  connection
-        appLogger() << "kill old connection due to inactive {socket,loopId,workerId}={" << existedSession.mConnectedSocket << "," << existedSession.loopId << "," << workerId << "}";
-        killConnection(existedSession.mConnectedSocket, workerId);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        return  handleRegisterCommand(clientSocket, loopId, command);
-    }
-    else {
-        appLogger() << "client denied registration due to connection already exist {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerId << "}";
-        killConnection(clientSocket, workerId);
+    shutdown(socket, SD_BOTH);
+}
+std::optional<CashierInfo> ServerHandler::handleRegisterCommand(SOCKET clientSocket, ConnectionId loopId, RegisterCommand* command)
+{
+    if (command == nullptr) {
+        std::cout << "loop id: " << loopId << " kill connection cuz unsuccess registration" << std::endl;
+        killConnection(clientSocket);
         return std::nullopt;
     }
+    const WorkstationId workerId = command->cashierId();
+    const auto alreadyHasSession = [this](WorkstationId workerId) {
+        std::lock_guard lock(this->_mutex);
+        const auto& conditional = this->mSessions.find(workerId);
+        if (conditional == mSessions.end())return false;
+        return true;
+        };
+    if (!alreadyHasSession(workerId)) {
+        appLogger() << "new accepted registration request with workerId:{" << workerId << "} clientSocket:{" << clientSocket << "}";
+        registerWorkstationConnection(workerId, command->cashierName(), loopId,clientSocket);
+        return mState->getWorkstationState(workerId);
+    }
+    //has a session: do validation
+    const auto isNewConnectionPrefer = [&](WorkstationId workerId) {
+        WorkerSession firstRecord;
+        {
+            std::lock_guard lock(this->_mutex);
+            //поиск старых соединений по workerId
+            const auto& conditional = this->mSessions.find(workerId);
+            if (conditional == mSessions.end())return true;//старое пропало
+            const auto& workerIdSessionList = conditional->second;
+            if (workerIdSessionList.empty())return true;//пусто, нет сессий
+            firstRecord = workerIdSessionList.front();
+        }
+         const auto timeNow = std::chrono::steady_clock::now();
+         const auto inactiveFor = std::chrono::duration_cast<std::chrono::milliseconds>(
+             timeNow - firstRecord.lastActivity
+         );
+        
+         //timeout bring for connection(афк сессии отдельно от афк кассы): 
+         if (inactiveFor.count() > 1e+4) {
+             appLogger() << "replace old connection, socket:{" << firstRecord.mConnectedSocket << "} by:{" << clientSocket << "} due to inactive()";
+             removeWorkstation(workerId);
+             killConnection(firstRecord.mConnectedSocket);
+             return true;
+         }
+         return false;
+    };
+    if (isNewConnectionPrefer(workerId)) {
+        registerWorkstationConnection(workerId, command->cashierName(), loopId,clientSocket);
+        return mState->getWorkstationState(workerId);
+    }
+    //cancel connection
+    appLogger() << "denied in registration with socket {" << clientSocket << "} & ConnectionId {" << loopId << "} due to exist connection";
+    killConnection(clientSocket);
+    return std::nullopt;
 }
-
 void ServerHandler::handleGetState(SOCKET clientSocket, uint64_t loopId, SendStateCommand* command)
 {
     const auto& workerState = command->takeInfo();
     appLogger() << "client handleGetState() {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerState.cashierId << "}";
     appLogger() << "workerId new state: " << (int) workerState.mState << " worker id = " << workerState.cashierId;
 
-    mSessions[workerState.cashierId].lastActivity = std::chrono::steady_clock::now();//crash danger
-
     mState->updateCashierState(workerState.cashierId, workerState.mState);
     publishStateSnapshotLocked();
 }
-
-void ServerHandler::killConnection(SOCKET socket, const std::string& workerId)
+void ServerHandler::sendServerSideState(ConnectionId loopId)
 {
-    shutdown(socket, SD_BOTH);
-}
-
-void ServerHandler::addWorker(WorkerSession session, CashierInfo info, uint64_t loopId )
-{
-    {
-        std::lock_guard guard(this->_mutex);
-        mSessions[info.cashierId] = session;
-        mSessionsBinding[loopId] = session.workerId;
-    }
-    mState->registerCashier(info.cashierId,info.mName);
-    publishStateSnapshotLocked();
-}
-
-void ServerHandler::cleanupWorkerSession(uint64_t loopId)
-{
-    std::lock_guard guard(_mutex);
-
-    auto bindingIt = mSessionsBinding.find(loopId);
-    if (bindingIt == mSessionsBinding.end()) {
-        return;
-    }
-
-    const std::string workerId = bindingIt->second;
-
-    auto sessionIt = mSessions.find(workerId);
-
-    if (sessionIt != mSessions.end() &&
-        sessionIt->second.loopId == loopId) {
-        mSessions.erase(sessionIt);
-        std::cout << "Session removed for worker: " << workerId << std::endl;
-    }
-
-    mSessionsBinding.erase(bindingIt);
-    this->mState->unregisterCashier(workerId);
-    publishStateSnapshotLocked();
-}
-
-void ServerHandler::sendServerSideState(uint64_t loopId)
-{
-    const auto& session = getWorkerSessionByLoopId(loopId);
-    if (!session.has_value()) {
+    std::lock_guard lock(this->_mutex);
+    WorkerSession* currentSession = getWorkerSessionByConnectionId(loopId);
+    if (!currentSession) {
         std::cout << "sendServerSideState(): session is null" << std::endl;
         return;
     }
-    const auto& state = mState->getWorkstationState(session.value().workerId);
+    
+    const auto& state = mState->getWorkstationState(currentSession->workerId);
     if (!state.has_value()) {
         std::cout << "sendServerSideState(): null state" << std::endl;
         return;
     }
     SendStateCommand command = SendStateCommand(state.value());
-    NetworkUtils::sendJson(session.value().mConnectedSocket, std::move(command.toJson()));
+    NetworkUtils::sendJson(currentSession->mConnectedSocket, std::move(command.toJson()));
 }
-
-std::optional<WorkerSession> ServerHandler::getWorkerSessionByLoopId(uint64_t loopId) const
+void ServerHandler::registerWorkstationConnection(const WorkstationId& mainId, const std::string& workstationName, ConnectionId connectionId,SOCKET clientSocket)
 {
-    std::lock_guard guard(this->_mutex);
-    const auto possibleWorkerId = mSessionsBinding.find(loopId);
-    if (possibleWorkerId == mSessionsBinding.end()) {
-        return std::nullopt;
+    WorkerSession session{};
+    session.connectionId = connectionId;
+    session.workerId = mainId;
+    session.mConnectedSocket = clientSocket;
+    session.mSessionStatus = WorkerSessionStatus::Registered;
+    {
+        std::lock_guard guard(this->_mutex);
+        mSessions[mainId].emplace_front(session);
+        workerIdByConnections[connectionId] = mainId;
+    }
+    mState->registerCashier(mainId, workstationName);
+    publishStateSnapshotLocked();
+}
+void ServerHandler::cleanupWorkerSession(ConnectionId connectionId)
+{
+    std::lock_guard guard(_mutex);
+    const auto workerIterator = this->workerIdByConnections.find(connectionId);
+    if (workerIterator == workerIdByConnections.end()) {
+        return;
+    }
+    const WorkstationId workerId = workerIterator->second;
+
+    auto sessionIt = mSessions.find(workerId);//iterator
+    if (sessionIt == mSessions.end())return;
+    std::deque<WorkerSession>& deque = sessionIt->second;
+    if (deque.empty())return;
+    WorkerSession record = deque.front();
+    if (record.connectionId == connectionId) {
+        deque.pop_front();
+        this->workerIdByConnections.erase(connectionId);
+        if (deque.empty()) {
+            mSessions.erase(workerId);
+            this->mState->unregisterCashier(workerId);
+            publishStateSnapshotLocked();
+        }
+    }
+}
+void ServerHandler::removeWorkstation(const WorkstationId& workerId)
+{
+    std::lock_guard guard(_mutex);
+    auto session = mSessions.find(workerId);
+    if (session == mSessions.end())return;
+    if (session->second.empty())return;
+    auto& record = session->second.front();
+    if (record.mSessionStatus != WorkerSessionStatus::Registered) {
+        throw std::exception("removeWorkstation");
+    }
+    session->second.pop_front();
+    this->workerIdByConnections.erase(record.connectionId);
+    this->mState->unregisterCashier(workerId);
+    publishStateSnapshotLocked();
+
+}
+void ServerHandler::refreshSessionTimeout(ConnectionId connectionId)
+{
+    std::lock_guard guard(_mutex);
+
+    auto workerIt = workerIdByConnections.find(connectionId);
+    if (workerIt == workerIdByConnections.end()) {
+        return ;
+    }
+
+    auto sessionIt = mSessions.find(workerIt->second);
+    if (sessionIt == mSessions.end()) {
+        return ;
+    }
+
+    for (WorkerSession& record : sessionIt->second) {
+        if (record.connectionId == connectionId) {
+            record.lastActivity = std::chrono::steady_clock::now();
+            return;
+        }
+    }
+}
+void ServerHandler::publishStateSnapshotLocked()
+{
+    if (!mState || !mRepository)
+    {
+        return;
+    }
+
+    auto snapshot = mState->getCashiersSnapshot();
+
+    mRepository->setSnapshot(std::move(snapshot));
+}
+WorkerSession* ServerHandler::getWorkerSessionByConnectionId(ConnectionId connectionId)
+{
+    const auto possibleWorkerId = workerIdByConnections.find(connectionId);
+    if (possibleWorkerId == workerIdByConnections.end()) {
+        return nullptr;
     }
     const std::string workerId = possibleWorkerId->second;
-    const auto possibleSesssion = mSessions.find(workerId);
-    if (possibleSesssion == mSessions.end()) {
-        return std::nullopt;
+    const auto possibleSession = mSessions.find(workerId);
+    if (possibleSession == mSessions.end()) {
+        return nullptr;
     }
-    return std::make_optional(possibleSesssion->second);
+    for ( WorkerSession& record : possibleSession->second) {
+        if (record.connectionId == connectionId)return &record;
+    }
+    return nullptr;
 }
 
 

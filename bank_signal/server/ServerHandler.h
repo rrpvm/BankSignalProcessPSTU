@@ -1,22 +1,19 @@
 #pragma once
 #include <memory>
-#include "../data//ServerState.hpp"
-#include "../domain/IHandler.h"
-#include "../repository/CashierRepository.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <atomic>
 #include <deque>
 #include <optional>
+#include "WorkerSession.h"
+#include "../data//ServerState.hpp"
+#include "../domain/IHandler.h"
+#include "../repository/CashierRepository.h"
+
 class RegisterCommand;
 class SendStateCommand;
-struct WorkerSession {
-	std::string workerId;//id of exe
-	std::uint64_t loopId = 0;//local id of loop
-	SOCKET mConnectedSocket = INVALID_SOCKET;//local socket
-	std::chrono::steady_clock::time_point lastActivity = std::chrono::steady_clock::now();
-	std::chrono::steady_clock::time_point connectedAt = std::chrono::steady_clock::now();
-};
+
+
 class ServerHandler : public IHandler {
 public:
 	ServerHandler(std::shared_ptr<CashierRepository> repository);
@@ -24,41 +21,47 @@ public:
 	virtual void start() override;
 	virtual void stop() override;
 private:
-	void incomingConnectionsLoop();
 	void initSocket();
+	//обработка вход€щих соединений(клиентов)
+	void incomingConnectionsLoop();
+	//обработчик конкретного соединени€ после accept
 	void clientLoop(SOCKET clientSocket);
-	void handleInputMessage(SOCKET clientSocket, uint64_t loopId, const std::string& msg);
-	std::optional<CashierInfo> handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command);
-	void handleGetState(SOCKET clientSocket, uint64_t loopId, SendStateCommand* command);
-	void killConnection(SOCKET socket,const std::string& workerId);
-	void addWorker(WorkerSession session,CashierInfo info, uint64_t loopId );
-	void cleanupWorkerSession(uint64_t loopId);
+	//обработчик сообщений внутри соединени€
+	void handleInputMessage(SOCKET clientSocket, ConnectionId loopId, const std::string& msg);
+	//запрос на прерывание соединени€
+	void killConnection(SOCKET socket);
+	//обработка команды на регистрацию
+	std::optional<CashierInfo> handleRegisterCommand(SOCKET clientSocket, ConnectionId loopId, RegisterCommand* command);
+	//обработка получени€ состо€ни€ клиента
+	void handleGetState(SOCKET clientSocket, ConnectionId loopId, SendStateCommand* command);
+	//отправка состо€ни€ с сервера клиенту - после регистрации\получени€ состо€ни€ от него
+	void sendServerSideState(ConnectionId connectionId);
+	//служебна€ функци€ - 'официальна€' регистраци€
+	void registerWorkstationConnection(const WorkstationId& mainId,const std::string& workstationName, ConnectionId connectionId,SOCKET clientSocket);
+	//служебна€ функци€ - очистка соединени€ из сесии
+	void cleanupWorkerSession(ConnectionId connectionId);
+	//удал€ет worksession из списка + сам  cashier из mState
+	void removeWorkstation(const WorkstationId& workerId);
+	void refreshSessionTimeout(ConnectionId connectionId);
 
-	void publishStateSnapshotLocked()
-	{
-		if (!mState || !mRepository)
-		{
-			return;
-		}
+	//служебна€ функци€ - каждое изменение mState должно дергать repository
+	void publishStateSnapshotLocked();
 
-		auto snapshot = mState->getCashiersSnapshot();
-
-		mRepository->setSnapshot(std::move(snapshot));
-	};
-	void sendServerSideState( uint64_t loopId);
-
-	std::optional<WorkerSession>getWorkerSessionByLoopId(uint64_t loopId) const;
+	//@SingleThread!
+	WorkerSession * getWorkerSessionByConnectionId(ConnectionId connectionId);
 private:
-	std::shared_ptr<CashierRepository> mRepository;
 	std::unique_ptr<ServerState> mState;
-	std::unordered_map<std::string, WorkerSession> mSessions;//worker id - worker session
-	std::unordered_map<uint64_t, std::string > mSessionsBinding;//прив€зка connectionId k SOCKET
+	std::shared_ptr<CashierRepository> mRepository;
+private:
+	std::unordered_map< WorkstationId, std::deque<WorkerSession>> mSessions;
+	std::unordered_map<ConnectionId, WorkstationId> workerIdByConnections;
+	
 
-	mutable std::mutex _mutex;//for class: session etc
+
 	SOCKET mListenSocket = INVALID_SOCKET;
-
-	std::mutex mClientThreadsMutex;//for connections
-	std::vector<std::thread> mClientThreads;
 	bool isInitialisedNetwork{ false };
+	std::vector<std::thread> mClientThreads;
+	mutable std::mutex mClientThreadsMutex;//for connections
+	mutable std::mutex _mutex;//for class: session etc
 	std::atomic_uint64_t mNextConnectionId = 1;
 };

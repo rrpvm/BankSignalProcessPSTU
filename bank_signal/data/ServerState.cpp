@@ -24,19 +24,13 @@ void ServerState::unregisterCashier(const std::string& id)
 void ServerState::updateCashierState(const std::string& id, CashierState state)
 {
     std::lock_guard guard(this->mLock);
-    auto cashier = mGlobalData.find(id);
-
-    if (cashier == mGlobalData.end())
-    {
-        registerCashier(id, id);
-        cashier = mGlobalData.find(id);
-        if (cashier == mGlobalData.end())
-        {
-            throw std::exception("unknown error with global data by update cashier state");
-        }
+    auto [it, inserted] = mGlobalData.try_emplace(id);
+    if (inserted) {
+        it->second.cashierId = id;
+        it->second.mName = id;
     }
-    cashier->second.mState = state;
-    cashier->second.lastHeartBeat = std::chrono::steady_clock::now();
+    it->second.mState = state;
+    it->second.lastHeartBeat = std::chrono::steady_clock::now();
 }
 
 void ServerState::updateHeartbeat(const std::string& id)
