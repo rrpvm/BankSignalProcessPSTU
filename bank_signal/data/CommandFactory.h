@@ -2,6 +2,7 @@
 #include "RegisterCommand.h"
 #include "SendStateCommand.h"
 #include "RegisterResponseCommand.h"
+#include "AskStateCommand.h"
 
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -35,10 +36,10 @@ public:
                 );
             }
 
-            if (type == "heartbeat")
+            if (type == ASK_STATE_COMMAND_TYPE)
             {
-                return std::make_unique<RegisterCommand>(
-                    RegisterCommand::fromJson(json)
+                return std::make_unique<AskStateCommand>(
+                    AskStateCommand::fromJson(json)
                 );
             }
 

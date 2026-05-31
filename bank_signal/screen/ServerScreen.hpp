@@ -19,7 +19,7 @@ public:
     void render() override;
 
 private:
-    void renderCashierCard(const CashierModel& cash,const CashierInfo& info, float cardHeight) const;
+    void renderCashierCard(const CashierModel& cash, float cardHeight) const;
     void drawCashierCardsGrid(const std::vector<CashierModel>& cashiers) const;
 
     void renderHeader() const;

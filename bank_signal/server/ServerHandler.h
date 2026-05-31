@@ -12,6 +12,8 @@
 
 class RegisterCommand;
 class SendStateCommand;
+#define SERVER_HEARTBEAT_TIMEOUT 2000
+constexpr DWORD dwTimeOut = SERVER_HEARTBEAT_TIMEOUT;
 
 
 class ServerHandler : public IHandler {
@@ -46,6 +48,12 @@ private:
 
 	//служебная функция - каждое изменение mState должно дергать repository
 	void publishStateSnapshotLocked();
+
+	//ask state
+	void doHeartbeat(ConnectionId connectionId, SOCKET socket);
+
+	//refresh mstate
+	void service();
 
 	//@SingleThread!
 	WorkerSession * getWorkerSessionByConnectionId(ConnectionId connectionId);

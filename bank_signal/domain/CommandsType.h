@@ -4,5 +4,5 @@ enum class CommandsType {
 	Register,
 	RegisterResponse,
 	State,
-	Heartbeat,
+	Heartbeat,//Ask
 };

@@ -1,8 +1,12 @@
 #pragma once
 #include <imgui.h>
-struct CashierModel final{
-    const char* id;
-    const char* status;
-    const char* currentTicket;
+#include <string>
+struct CashierModel final {
+    std::string id;
+    std::string name;
+    std::string status;
+    std::string description;
+    std::string currentTicket;
+    std::string timeout;//test
     ImVec4 fColor;
 };

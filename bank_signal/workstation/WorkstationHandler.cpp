@@ -121,6 +121,12 @@ void WorkstationHandler::registerForServer()
     NetworkUtils::sendJson(this->mConnectionSocket, std::move(command.toJson()));
 }
 
+void WorkstationHandler::handleAskCommand()
+{
+    std::cout << "Heartbeat with local state from server; "  << std::endl;
+    sendStateToServer(this->mController->getLocalState());
+}
+
 void WorkstationHandler::handleServerMessage(const std::string& msg)
 {
     json inputMessage;
@@ -154,11 +160,10 @@ void WorkstationHandler::handleServerMessage(const std::string& msg)
         handleIncomingState(dynamic_cast<SendStateCommand*>(command.get()));
         break;
     }
-                                       //Ack
-                                  /* case CommandsType::Ack:
-                                       handleGetState(clientSocket, loopId, dynamic_cast<SendStateCommand*>(command.get()));
-                                       break;*/
-
+    case CommandsType::Heartbeat: {
+        handleAskCommand();
+        break;
+    }
     default:
         std::cout << "unhandled type" << command->getCommandTypeName() << std::endl;
     }

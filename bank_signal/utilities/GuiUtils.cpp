@@ -66,10 +66,17 @@ ImVec4 GuiUtils::StateToColor(CashierState state)
 
 CashierModel GuiUtils::CashierInfoToPresentationModel(const CashierInfo& info)
 {
-    auto model =  CashierModel();
-    model.id = info.cashierId.c_str();
-    model.currentTicket = "1337";
+    CashierModel model{};
+    model.id = info.cashierId;
+    model.name = info.mName;
+    model.currentTicket = "-";
+    model.description = StateToDescription(info.mState);
     model.status = StateToText(info.mState);
     model.fColor = StateToColor(info.mState);
+    const auto timeNow = std::chrono::steady_clock::now();
+    const auto inactiveFor = std::chrono::duration_cast<std::chrono::milliseconds>(
+        timeNow - info.lastHeartBeat
+    );
+    model.timeout = std::to_string(inactiveFor.count() / 1000);
     return model;
 }

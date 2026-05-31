@@ -49,7 +49,7 @@ void ServerScreen::render()
     ImGui::End();
 }
 
-void ServerScreen::renderCashierCard(const CashierModel& cashier, const CashierInfo& info, float cardHeight) const
+void ServerScreen::renderCashierCard(const CashierModel& cashier, float cardHeight) const
 {
     ImVec4 stateColor = cashier.fColor;
 
@@ -62,14 +62,14 @@ void ServerScreen::renderCashierCard(const CashierModel& cashier, const CashierI
 
     ImGui::BeginChild(childId.c_str(), ImVec2(0.0f, cardHeight), true);
 
-    ImGui::Text("%s", cashier.id);
-    ImGui::TextDisabled("ID: %s", cashier.id);
+    ImGui::Text("%s", cashier.timeout.c_str());
+    ImGui::TextDisabled("ID: %s", cashier.id.c_str());
 
     ImGui::Spacing();
 
     ImGui::PushStyleColor(ImGuiCol_Text, stateColor);
     ImGui::SetWindowFontScale(1.6f);
-    ImGui::Text("%s", cashier.status);
+    ImGui::Text("%s", cashier.status.c_str());
     ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
 
@@ -77,23 +77,7 @@ void ServerScreen::renderCashierCard(const CashierModel& cashier, const CashierI
 
     ImGui::Separator();
     ImGui::Spacing();
-
-    if (info.mState == CashierState::Free)
-    {
-        ImGui::TextWrapped("Можно направить клиента.");
-    }
-    else if (info.mState == CashierState::Busy)
-    {
-        ImGui::TextWrapped("Идёт обслуживание клиента.");
-    }
-    else if (info.mState == CashierState::Ready)
-    {
-        ImGui::TextWrapped("Рабочее место готово.");
-    }
-    else
-    {
-        ImGui::TextWrapped("Нет связи с процессом кассы.");
-    }
+    ImGui::TextWrapped(cashier.description.c_str());
 
     ImGui::EndChild();
 
@@ -139,9 +123,7 @@ void ServerScreen::drawCashierCardsGrid(const std::vector<CashierModel>& cashier
             }
 
             ImGui::TableSetColumnIndex(i % columns);
-            auto info = CashierInfo();
-            info.cashierId = "13376";
-            renderCashierCard(cashiers[i],info, cardHeight);
+            renderCashierCard(cashiers[i], cardHeight);
         }
 
         ImGui::EndTable();
@@ -152,7 +134,6 @@ void ServerScreen::renderHeader() const
 {
     ImGui::Text("Mode: SERVER");
     ImGui::Text("Address: %s:%d", config_.serverHost.c_str(), config_.serverPort);
-    ImGui::Text("Purpose: queue storage, workstation status processing, billboard updates");
 }
 
 void ServerScreen::renderLog() const

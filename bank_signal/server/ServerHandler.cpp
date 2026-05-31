@@ -36,8 +36,9 @@ ServerHandler::~ServerHandler()
 void ServerHandler::start()
 {
     if (isRunning || !isInitialisedNetwork)return;
-
     this->isRunning = true;
+    std::thread postProcess(&ServerHandler::service, this);
+    mClientThreads.push_back(std::move(postProcess));
     incomingConnectionsLoop();
     {
         std::lock_guard<std::mutex> lock(mClientThreadsMutex);
@@ -113,6 +114,7 @@ void ServerHandler::incomingConnectionsLoop()
     initSocket();
     while (isRunning.load())
     {
+        
         SOCKET clientSocket = accept(mListenSocket, nullptr, nullptr);
 
         if (clientSocket == INVALID_SOCKET)
@@ -134,14 +136,12 @@ void ServerHandler::incomingConnectionsLoop()
             continue;
         }
 
-        DWORD timeoutMs = 200;
-
         setsockopt(
             clientSocket,
             SOL_SOCKET,
             SO_RCVTIMEO,
-            reinterpret_cast<const char*>(&timeoutMs),
-            sizeof(timeoutMs)
+            reinterpret_cast<const char*>(&dwTimeOut),
+            sizeof(dwTimeOut)
         );
 
         {
@@ -213,6 +213,8 @@ void ServerHandler::clientLoop(SOCKET clientSocket)
 
             if (error == WSAETIMEDOUT)
             {
+                //2000мс не получал ничего - время прозвонить
+                doHeartbeat(loopId,clientSocket);
                 continue;
             }
 
@@ -446,6 +448,18 @@ void ServerHandler::publishStateSnapshotLocked()
     auto snapshot = mState->getCashiersSnapshot();
 
     mRepository->setSnapshot(std::move(snapshot));
+}
+void ServerHandler::doHeartbeat(ConnectionId connectionId, SOCKET socket)
+{
+    NetworkUtils::sendJson(socket, std::move(AskStateCommand().toJson()));
+}
+void ServerHandler::service()
+{
+    while (isRunning.load()) {
+        mState->checkTimeouts();
+        this->publishStateSnapshotLocked();
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
 }
 WorkerSession* ServerHandler::getWorkerSessionByConnectionId(ConnectionId connectionId)
 {

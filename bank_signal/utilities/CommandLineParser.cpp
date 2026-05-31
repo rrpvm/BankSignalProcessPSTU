@@ -30,6 +30,9 @@ AppConfig CommandLineParser::parse(int argc, char** argv)
         {
             config.workstationId = argv[2];
         }
+        if (argc >= 4) {
+            config.workstationName = argv[3];
+        }
         return config;
     }
 

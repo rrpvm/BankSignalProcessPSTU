@@ -20,6 +20,7 @@ private:
 	bool connectToServer();
 	void sendStateToServer(const CashierInfo& state);
 	void registerForServer();
+	void handleAskCommand();
 	void handleServerMessage(const std::string& msg);
 	void handleRegisterResponse(RegisterResponseCommand* command);
 	void handleIncomingState(SendStateCommand* command);
