@@ -53,6 +53,14 @@ CashierInfo WorkstationController::getServerState() const
     return serverState_;
 }
 
+void WorkstationController::onUpdateServerSide(CashierInfo info)
+{
+    std::lock_guard lock(mutex_);
+    this->serverState_ = info;
+    localState_ = info;
+    isWaitingForServerAccept = false;
+}
+
 CashierState WorkstationController::nextState(CashierState current) const
 {
     switch (current)

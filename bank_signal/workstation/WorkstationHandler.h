@@ -9,6 +9,7 @@
 #include <mutex>
 
 class RegisterResponseCommand;
+class SendStateCommand;
 class WorkstationHandler final : public IHandler {
 public:
 	explicit WorkstationHandler(std::shared_ptr<WorkstationController> controller);
@@ -21,6 +22,7 @@ private:
 	void registerForServer();
 	void handleServerMessage(const std::string& msg);
 	void handleRegisterResponse(RegisterResponseCommand* command);
+	void handleIncomingState(SendStateCommand* command);
 	void mainLoop();
 private:
 	std::shared_ptr<WorkstationController> mController;

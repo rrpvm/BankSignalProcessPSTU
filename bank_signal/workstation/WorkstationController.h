@@ -28,14 +28,10 @@ public:
     std::optional<PendingWorkstationState> consumePendingState();
     CashierInfo getLocalState() const;
     CashierInfo getServerState() const;
-    void onUpdateServerSide(CashierInfo info) {
-        this->serverState_ = info;
-        localState_ = info;
-        isWaitingForServerAccept = false;
-    }
+    void onUpdateServerSide(CashierInfo info);
 private:
     CashierState nextState(CashierState current) const;
-   
+
 private:
     CashierInfo localState_;
     CashierInfo serverState_;

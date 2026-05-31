@@ -10,6 +10,13 @@
 #include <optional>
 class RegisterCommand;
 class SendStateCommand;
+struct WorkerSession {
+	std::string workerId;//id of exe
+	std::uint64_t loopId = 0;//local id of loop
+	SOCKET mConnectedSocket = INVALID_SOCKET;//local socket
+	std::chrono::steady_clock::time_point lastActivity = std::chrono::steady_clock::now();
+	std::chrono::steady_clock::time_point connectedAt = std::chrono::steady_clock::now();
+};
 class ServerHandler : public IHandler {
 public:
 	ServerHandler(std::shared_ptr<CashierRepository> repository);
@@ -23,13 +30,6 @@ private:
 	void handleInputMessage(SOCKET clientSocket, uint64_t loopId, const std::string& msg);
 	std::optional<CashierInfo> handleRegisterCommand(SOCKET clientSocket, uint64_t loopId, RegisterCommand* command);
 	void handleGetState(SOCKET clientSocket, uint64_t loopId, SendStateCommand* command);
-	struct WorkerSession {
-		std::string workerId;//id of exe
-		std::uint64_t loopId = 0;//local id of loop
-		SOCKET mConnectedSocket = INVALID_SOCKET;//local socket
-		std::chrono::steady_clock::time_point lastActivity = std::chrono::steady_clock::now();
-		std::chrono::steady_clock::time_point connectedAt =std::chrono::steady_clock::now();
-	};
 	void killConnection(SOCKET socket,const std::string& workerId);
 	void addWorker(WorkerSession session,CashierInfo info, uint64_t loopId );
 	void cleanupWorkerSession(uint64_t loopId);
@@ -41,17 +41,20 @@ private:
 			return;
 		}
 
-		const auto& snapshot = mState->getCashiersSnapshot();
+		auto snapshot = mState->getCashiersSnapshot();
 
 		mRepository->setSnapshot(std::move(snapshot));
-	}
+	};
+	void sendServerSideState( uint64_t loopId);
+
+	std::optional<WorkerSession>getWorkerSessionByLoopId(uint64_t loopId) const;
 private:
 	std::shared_ptr<CashierRepository> mRepository;
 	std::unique_ptr<ServerState> mState;
-	std::unordered_map<std::string, WorkerSession> mSessions;
+	std::unordered_map<std::string, WorkerSession> mSessions;//worker id - worker session
 	std::unordered_map<uint64_t, std::string > mSessionsBinding;//привязка connectionId k SOCKET
 
-	std::mutex _mutex;//for class
+	mutable std::mutex _mutex;//for class: session etc
 	SOCKET mListenSocket = INVALID_SOCKET;
 
 	std::mutex mClientThreadsMutex;//for connections

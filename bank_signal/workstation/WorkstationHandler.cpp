@@ -3,8 +3,6 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include "../utilities/NetworkUtils.h"
-#include "../data/RegisterCommand.h"
-#include "../data/SendStateCommand.h"
 #include "../data/CommandFactory.h"
 using json = nlohmann::json;
 
@@ -152,6 +150,10 @@ void WorkstationHandler::handleServerMessage(const std::string& msg)
         handleRegisterResponse(dynamic_cast<RegisterResponseCommand*>(command.get()));
             break;
     }
+    case CommandsType::State: {
+        handleIncomingState(dynamic_cast<SendStateCommand*>(command.get()));
+        break;
+    }
                                        //Ack
                                   /* case CommandsType::Ack:
                                        handleGetState(clientSocket, loopId, dynamic_cast<SendStateCommand*>(command.get()));
@@ -172,6 +174,12 @@ void WorkstationHandler::handleRegisterResponse(RegisterResponseCommand* command
     info.lastHeartBeat = std::chrono::steady_clock::now();
 
     this->mController->onUpdateServerSide(info);
+}
+
+void WorkstationHandler::handleIncomingState(SendStateCommand* command)
+{
+    if (!command)return;
+    this->mController->onUpdateServerSide(command->takeInfo());
 }
 
 void WorkstationHandler::mainLoop()

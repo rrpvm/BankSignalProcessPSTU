@@ -272,6 +272,7 @@ void ServerHandler::handleInputMessage(SOCKET clientSocket, uint64_t loopId, con
 
     case CommandsType::State: {
         handleGetState(clientSocket, loopId, dynamic_cast<SendStateCommand*>(command.get()));
+        sendServerSideState(loopId);
         break;
     }
     default:
@@ -340,7 +341,7 @@ void ServerHandler::handleGetState(SOCKET clientSocket, uint64_t loopId, SendSta
 {
     const auto& workerState = command->takeInfo();
     appLogger() << "client handleGetState() {socket,loopId,workerId}={" << clientSocket << "," << loopId << "," << workerState.cashierId << "}";
-   // appLogger() << "workerId new state" << "state:" << workerState.mState << " id" << workerState.cashierId;
+    appLogger() << "workerId new state: " << (int) workerState.mState << " worker id = " << workerState.cashierId;
 
     mSessions[workerState.cashierId].lastActivity = std::chrono::steady_clock::now();//crash danger
 
@@ -386,6 +387,37 @@ void ServerHandler::cleanupWorkerSession(uint64_t loopId)
     mSessionsBinding.erase(bindingIt);
     this->mState->unregisterCashier(workerId);
     publishStateSnapshotLocked();
+}
+
+void ServerHandler::sendServerSideState(uint64_t loopId)
+{
+    const auto& session = getWorkerSessionByLoopId(loopId);
+    if (!session.has_value()) {
+        std::cout << "sendServerSideState(): session is null" << std::endl;
+        return;
+    }
+    const auto& state = mState->getWorkstationState(session.value().workerId);
+    if (!state.has_value()) {
+        std::cout << "sendServerSideState(): null state" << std::endl;
+        return;
+    }
+    SendStateCommand command = SendStateCommand(state.value());
+    NetworkUtils::sendJson(session.value().mConnectedSocket, std::move(command.toJson()));
+}
+
+std::optional<WorkerSession> ServerHandler::getWorkerSessionByLoopId(uint64_t loopId) const
+{
+    std::lock_guard guard(this->_mutex);
+    const auto possibleWorkerId = mSessionsBinding.find(loopId);
+    if (possibleWorkerId == mSessionsBinding.end()) {
+        return std::nullopt;
+    }
+    const std::string workerId = possibleWorkerId->second;
+    const auto possibleSesssion = mSessions.find(workerId);
+    if (possibleSesssion == mSessions.end()) {
+        return std::nullopt;
+    }
+    return std::make_optional(possibleSesssion->second);
 }
 
 

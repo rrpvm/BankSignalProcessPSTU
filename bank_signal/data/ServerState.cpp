@@ -50,6 +50,18 @@ void ServerState::updateHeartbeat(const std::string& id)
     }
 }
 
+std::optional<CashierInfo> ServerState::getWorkstationState(const std::string& id)
+{
+    std::lock_guard guard(this->mLock);
+    auto it = mGlobalData.find(id);
+
+    if (it != mGlobalData.end())
+    {
+        return std::make_optional(it->second);
+    }
+    return std::nullopt;
+}
+
 void ServerState::checkTimeouts()
 {
     std::lock_guard guard(this->mLock);

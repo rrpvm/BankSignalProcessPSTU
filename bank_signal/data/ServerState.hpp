@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <mutex>
 #include "../domain/CashierInfo.hpp"
+#include <optional>
 
 class ServerState {
 public:
@@ -11,7 +12,7 @@ public:
 	void unregisterCashier(const std::string& id);
 	void updateCashierState(const std::string& id, CashierState state);
 	void updateHeartbeat(const std::string& id);
-
+	std::optional<CashierInfo> getWorkstationState(const std::string& id);
 	void checkTimeouts();
 
 	void reset();
