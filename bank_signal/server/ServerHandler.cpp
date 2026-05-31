@@ -37,8 +37,7 @@ void ServerHandler::start()
 {
     if (isRunning || !isInitialisedNetwork)return;
     this->isRunning = true;
-    std::thread postProcess(&ServerHandler::service, this);
-    mClientThreads.push_back(std::move(postProcess));
+    mClientThreads.emplace_back(&ServerHandler::service, this);
     incomingConnectionsLoop();
     {
         std::lock_guard<std::mutex> lock(mClientThreadsMutex);
@@ -407,7 +406,7 @@ void ServerHandler::removeWorkstation(const WorkstationId& workerId)
     auto session = mSessions.find(workerId);
     if (session == mSessions.end())return;
     if (session->second.empty())return;
-    auto& record = session->second.front();
+    WorkerSession record = session->second.front();
     if (record.mSessionStatus != WorkerSessionStatus::Registered) {
         throw std::exception("removeWorkstation");
     }
@@ -451,6 +450,21 @@ void ServerHandler::publishStateSnapshotLocked()
 }
 void ServerHandler::doHeartbeat(ConnectionId connectionId, SOCKET socket)
 {
+    {
+        std::lock_guard lock(this->_mutex);
+        auto idIterator = this->workerIdByConnections.find(connectionId);
+        if (idIterator == workerIdByConnections.end()) {
+            return;
+        }
+        auto sessionIterator = mSessions.find(idIterator->second);
+        if (sessionIterator == mSessions.end()) { return; }
+        auto doReturn = true;
+        for (auto k : sessionIterator->second) {
+            if (k.connectionId == connectionId)doReturn = false;
+        }
+        if (doReturn)return;
+    }
+    
     NetworkUtils::sendJson(socket, std::move(AskStateCommand().toJson()));
 }
 void ServerHandler::service()
